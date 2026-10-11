@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Modules\Property\Controllers\PropertyWebController;
+use App\Modules\Property\Http\Controllers\PropertyWebController;
 
 /*
 |--------------------------------------------------------------------------

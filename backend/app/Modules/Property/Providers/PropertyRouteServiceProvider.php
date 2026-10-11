@@ -11,11 +11,6 @@ class PropertyRouteServiceProvider extends ServiceProvider
     {
         // Cargamos las rutas Web
         Route::middleware('web')
-            ->group(__path('..', 'Routes/web.php')); // O usando base_path / app_path directo
-
-        // O de esta forma más limpia con app_path:
-        
-        Route::middleware('web')
             ->group(app_path('Modules/Property/Routes/web.php'));
 
         // Cargamos las rutas API para Expo (con prefijo /api/v1)

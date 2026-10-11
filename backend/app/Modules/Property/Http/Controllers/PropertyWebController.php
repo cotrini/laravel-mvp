@@ -1,11 +1,17 @@
 <?php
 
-namespace App\Http\Controllers\Modules\Property\Controllers;
+namespace App\Modules\Property\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 class PropertyWebController extends Controller
 {
-    //
+    public function index()
+    {
+        // Tu código aquí
+    }
+    public function show($id)
+    {
+        // Tu código aquí
+    }
 }
