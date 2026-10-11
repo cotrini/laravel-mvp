@@ -43,7 +43,7 @@
     <div class="container">
         <!-- Puedes reemplazar esta URL con la ruta de tu propia imagen guardada en public/storage o un enlace -->
         <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop" alt="Próximamente">
-        <h1>Algo mágico se está construyendo</h1>
+        <h1>Algo mágico se está construyendo en este lugar</h1>
         <p>Estamos preparando el terreno. Muy pronto lanzaremos nuestra plataforma.</p>
     </div>
 </body>
