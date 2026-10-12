@@ -4,6 +4,7 @@ namespace App\Modules\Property\Providers;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\View;
 
 class PropertyRouteServiceProvider extends ServiceProvider
 {
@@ -17,5 +18,8 @@ class PropertyRouteServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware('api')
             ->group(app_path('Modules/Property/Routes/api.php'));
+
+        //load the views for the module
+        View::addNamespace('properties', app_path('Modules/Property/Resources/Views'));
     }
 }

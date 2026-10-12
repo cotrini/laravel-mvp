@@ -12,6 +12,8 @@ class PropertyWebController extends Controller
     }
     public function show($id)
     {
-        // Tu código aquí
+        // implements the logic to show a specific property by its ID
+        $property = \App\Modules\Property\Models\Property::findOrFail($id);
+        return view('properties::show', compact('property'));
     }
 }
