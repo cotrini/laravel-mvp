@@ -1,0 +1,1 @@
+<h1>pagina index de todas las propiedades</h1>

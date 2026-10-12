@@ -16,7 +16,7 @@ use App\Modules\Property\Http\Controllers\PropertyWebController;
 
 // Rutas públicas (accesibles para cualquier visitante de la web)
 Route::get('/properties', [PropertyWebController::class, 'index'])->name('properties.index');
-Route::get('/properties/{id}', [PropertyWebController::class, 'show'])->name('properties.show');
+
 
 // Rutas protegidas (ejemplo: solo para usuarios autenticados como agentes o administradores)
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -27,3 +27,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/properties/{id}', [PropertyWebController::class, 'update'])->name('properties.update');
     Route::delete('/properties/{id}', [PropertyWebController::class, 'destroy'])->name('properties.destroy');
 });
+
+Route::get('/properties/{id}', [PropertyWebController::class, 'show'])->name('properties.show');
