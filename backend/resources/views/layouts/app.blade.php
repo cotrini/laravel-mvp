@@ -12,6 +12,35 @@
     <!-- Header Estilo Amazon -->
     <header class="bg-[#131921] text-white">
         <!-- Barra superior principal -->
+            <div class="flex items-center space-x-6">
+            
+            <!-- 1. SALUDO Y ENLACE AL DASHBOARD (O LOGIN SI ES INVITADO) -->
+            @auth
+                <a href="{{ route('dashboard') }}" class="text-sm text-gray-200 hover:text-white transition">
+                    Hola, <span class="font-bold text-white">{{ auth()->user()->name }}</span>
+                </a>
+            @endauth
+
+            @guest
+                <a href="{{ route('login') }}" class="text-sm text-gray-200 hover:text-white transition">
+                    Hola, <span class="font-bold text-white">Inversionista</span>
+                </a>
+            @endguest
+
+            <!-- 2. BOTÓN PUBLICAR INMUEBLE DINÁMICO -->
+            @auth
+                <a href="{{ route('properties.create') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
+                    Publicar Inmueble
+                </a>
+            @endauth
+
+            @guest
+                <a href="{{ route('login') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
+                    Publicar Inmueble
+                </a>
+            @endguest
+
+        </div>
         <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
             <!-- Logo / Nombre -->
             <a href="{{ url('/') }}" class="text-xl font-bold tracking-tight text-white flex items-center gap-1">

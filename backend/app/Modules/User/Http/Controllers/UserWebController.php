@@ -54,7 +54,7 @@ class UserWebController extends Controller
             $request->session()->regenerate();
 
             // return redirect()->intended('/');
-            return redirect()->route('properties.create');
+            return redirect()->route('properties.index')->with('success', '¡Bienvenido de nuevo!');
         }
 
         return back()->withErrors([
