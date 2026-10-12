@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('properties', function (Blueprint $table) {
             $table->id();
+            // user relationship
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
             $table->string('title');                    // Título del anuncio (ej: "Hermoso apartamento en Chipre")
             $table->text('description');                // Descripción detallada
             $table->decimal('price', 12, 2);            // Precio del inmueble (soporta cifras altas en pesos colombianos)

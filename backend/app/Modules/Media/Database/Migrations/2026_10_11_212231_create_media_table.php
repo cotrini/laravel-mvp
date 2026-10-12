@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('media', function (Blueprint $table) {
             $table->id();
 
+            $table->foreignId('property_id')->constrained('properties')->cascadeOnDelete();
+
             // Relación polimórfica (para que sirva en propiedades, usuarios, etc.)
             $table->morphs('mediable'); 
             
