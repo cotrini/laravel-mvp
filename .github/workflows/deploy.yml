@@ -13,12 +13,14 @@ jobs:
         with:
           ref: deploy
 
-      - name: Pull latest code
+      - name: Sync to Local Project Folder
+        shell: cmd
         run: |
-          git pull origin deploy
+          robocopy . "C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision" /E /XD .git node_modules vendor /XF .env
+          IF %ERRORLEVEL% LEQ 7 EXIT 0 ELSE EXIT %ERRORLEVEL%
 
       - name: Clear Cache & Optimize
-        working-directory: ./backend
+        working-directory: C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision\backend
         run: |
           php artisan config:clear
           php artisan view:clear
