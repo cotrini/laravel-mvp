@@ -21,3 +21,4 @@ jobs:
         run: |
           php artisan config:clear
           php artisan view:clear
+        working-directory: ./backend
