@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/properties/{id}/edit', [PropertyWebController::class, 'edit'])->name('properties.edit');
     Route::put('/properties/{id}', [PropertyWebController::class, 'update'])->name('properties.update');
     Route::delete('/properties/{id}', [PropertyWebController::class, 'destroy'])->name('properties.destroy');
+    Route::put('/properties/{id}', [PropertyWebController::class, 'update'])->name('properties.update');
 });
 
 Route::get('/properties/{id}', [PropertyWebController::class, 'show'])->name('properties.show');

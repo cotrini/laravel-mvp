@@ -8,10 +8,15 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
       - name: Pull latest code
         run: |
-          git checkout deploy
           git pull origin deploy
+
       - name: Clear Cache & Optimize
         run: |
           php artisan config:clear

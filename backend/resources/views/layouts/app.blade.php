@@ -15,31 +15,6 @@
             <div class="flex items-center space-x-6">
             
             <!-- 1. SALUDO Y ENLACE AL DASHBOARD (O LOGIN SI ES INVITADO) -->
-            @auth
-                <a href="{{ route('dashboard') }}" class="text-sm text-gray-200 hover:text-white transition">
-                    Hola, <span class="font-bold text-white">{{ auth()->user()->name }}</span>
-                </a>
-            @endauth
-
-            @guest
-                <a href="{{ route('login') }}" class="text-sm text-gray-200 hover:text-white transition">
-                    Hola, <span class="font-bold text-white">Inversionista</span>
-                </a>
-            @endguest
-
-            <!-- 2. BOTÓN PUBLICAR INMUEBLE DINÁMICO -->
-            @auth
-                <a href="{{ route('properties.create') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
-                    Publicar Inmueble
-                </a>
-            @endauth
-
-            @guest
-                <a href="{{ route('login') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
-                    Publicar Inmueble
-                </a>
-            @endguest
-
         </div>
         <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
             <!-- Logo / Nombre -->
@@ -63,12 +38,24 @@
 
             <!-- Enlaces de usuario / Publicar -->
             <div class="flex items-center gap-4 text-sm">
-                <a href="#" class="hover:text-amber-400 transition hidden md:block">Hola, Inversionista</a>
-                <a href="#" class="bg-amber-500 hover:bg-amber-600 text-gray-900 px-4 py-2 rounded font-bold shadow transition">
+                @auth
+                    <a href="{{ route('dashboard.index') }}" class="text-sm text-gray-200 hover:text-white transition">
+                        Hola, <span class="font-bold text-white">{{ auth()->user()->name }}</span>
+                    </a>
+                    <a href="{{ route('properties.create') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
+                    Publicar Inmueble
+                    </a>
+                @endauth
+                @guest
+                <a href="{{ route('login') }}" class="bg-amber-500 hover:bg-amber-400 text-gray-900 font-bold px-4 py-2 rounded-lg transition shadow">
                     Publicar Inmueble
                 </a>
+                @endguest
             </div>
         </div>
+
+            <!-- 2. BOTÓN PUBLICAR INMUEBLE DINÁMICO -->
+
 
         <!-- Sub-barra de navegación de categorías secundarias -->
         <nav class="bg-[#232f3e] text-sm px-4 py-2 flex items-center gap-6 overflow-x-auto whitespace-nowrap">

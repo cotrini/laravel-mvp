@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Modules\Dashboard\Http\Controllers\DashboardController;
+use App\Modules\Dashboard\Http\Controllers\DashboardWebController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,5 +15,5 @@ use App\Modules\Dashboard\Http\Controllers\DashboardController;
 */
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    Route::get('/dashboard', [DashboardWebController::class, 'index'])->name('dashboard.index');
 });
