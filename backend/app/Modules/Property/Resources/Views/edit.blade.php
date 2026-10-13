@@ -9,7 +9,7 @@
 
     <!-- 1. SECCIÓN DE ARCHIVOS MULTIMEDIA EXISTENTES (FUERA DEL FORMULARIO PRINCIPAL) -->
     <div class="bg-white border border-gray-200 rounded-xl p-8 shadow-sm mb-8">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Archivos Multimedia Actuales en la propoiedad</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Archivos Multimedia Actuales</h3>
         
         @if($property->media && $property->media->count() > 0)
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
