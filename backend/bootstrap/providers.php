@@ -8,4 +8,5 @@ return [
     App\Modules\Media\Providers\MediaRouteServiceProvider::class,
     App\Modules\User\Providers\UserRouteServiceProvider::class,
     App\Modules\Dashboard\Providers\DashboardRouteServiceProvider::class,
+    App\Modules\Tours360\Providers\Tour360RouteServiceProvider::class,
 ];

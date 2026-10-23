@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Modules\Property\Http\Controllers;
+
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Property\Models\Property;

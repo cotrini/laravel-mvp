@@ -28,6 +28,7 @@ class Property extends Model
         'department',
         'city',
         'neighborhood',
+        'tour_id',
     ];
 
     public function media()
@@ -39,5 +40,9 @@ class Property extends Model
     public function mediaPolymorphic()
     {
         return $this->morphMany(Media::class, 'mediable');
+    }
+    public function tour()
+    {
+        return $this->belongsTo(\App\Modules\Tours360\Models\Tour::class);
     }
 }

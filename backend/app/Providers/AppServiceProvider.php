@@ -23,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
         database_path('migrations'),
         app_path('Modules/Property/Database/Migrations'),
         app_path('Modules/Media/Database/Migrations'),
+        app_path('Modules/Tours360/Database/Migrations'),
     ]);
     }
 }

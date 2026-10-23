@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             // user relationship
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('tour_id')->nullable()->constrained('tours')->nullOnDelete();
 
             $table->string('title');                    // Título del anuncio (ej: "Hermoso apartamento en Chipre")
             $table->text('description');                // Descripción detallada

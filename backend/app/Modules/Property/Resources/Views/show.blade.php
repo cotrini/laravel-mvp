@@ -13,7 +13,7 @@
                 $primerasTres = $imagenes->take(3);
                 $restantesCount = $imagenes->count() - 3;
                 $videoItem = $property->media->where('type', 'video')->first();
-                $tour360Item = $property->media->where('type', 'tour_360')->first();
+                $tour360Item = $property->tour; // Assuming the tour_360 is related to the property via a 'tour' relationship
                 $tour3dItem = $property->media->where('type', 'tour_3d')->first();
                 $planoItem = $property->media->where('type', 'blueprint')->first();
             @endphp
@@ -49,8 +49,8 @@
             {{-- Recuadro Recorrido 360 --}}
             @if($tour360Item)
                 <div class="w-16 h-16 relative border-2 border-gray-300 hover:border-orange-500 rounded-lg overflow-hidden cursor-pointer shadow-sm bg-blue-900"
-                     onclick="abrirModalMedia('tour_360')">
-                    <img src="{{ asset($tour360Item->url_or_path ?? ($primerasTres->first()->url_or_path ?? '')) }}" class="w-full h-full object-cover opacity-60">
+                    onclick="abrirModalMedia('tour_360')">
+                    <img src="{{ asset($tour360Item->cover_url ?? ($primerasTres->first()->url_or_path ?? '')) }}" class="w-full h-full object-cover opacity-60">
                     <div class="absolute inset-0 flex flex-col items-center justify-center text-white text-[10px] font-bold bg-black bg-opacity-40">
                         <span>360°</span>
                     </div>
@@ -220,9 +220,18 @@
 
         <div id="content-tour_360" class="modal-content-section hidden w-full text-center text-white p-6">
             <h2 class="text-xl font-bold mb-2">Recorrido Virtual 360°</h2>
-            <div class="w-full h-[65vh] bg-gray-800 rounded-lg flex items-center justify-center border border-gray-700">
-                <iframe src="{{ $tour360Item->url_or_path ?? '#' }}" class="w-full h-full rounded-lg"></iframe>
-            </div>
+            
+            @if($property->tour && $property->tour->id)
+                {{-- Contenedor con altura explícita para que el h-full del iframe funcione --}}
+                <div class="w-full h-[75vh] bg-gray-900 rounded-lg overflow-hidden border border-gray-700 shadow-inner">
+                    <iframe src="{{ route('tours360.embed', $property->tour->id) }}" class="w-full h-full border-0"></iframe>
+                </div>
+            @else
+                <div class="text-gray-400 p-6 bg-gray-900 rounded-lg h-[40vh] flex flex-col items-center justify-center">
+                    <p class="text-lg font-semibold">⚠️ Tour no disponible</p>
+                    <p class="text-sm mt-1">Esta propiedad aún no tiene un recorrido virtual vinculado en la base de datos.</p>
+                </div>
+            @endif
         </div>
 
         <div id="content-tour_3d" class="modal-content-section hidden w-full text-center text-white p-6">
