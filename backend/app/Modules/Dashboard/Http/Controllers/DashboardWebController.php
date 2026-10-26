@@ -4,7 +4,6 @@ namespace App\Modules\Dashboard\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Property\Models\Property;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardWebController extends Controller
@@ -18,7 +17,7 @@ class DashboardWebController extends Controller
 
         // Obtener las propiedades pertenecientes al usuario autenticado con sus medios
         $properties = Property::where('user_id', $user->id)
-            ->with('media')
+            ->with(['media', 'tour'])
             ->latest()
             ->paginate(10);
 

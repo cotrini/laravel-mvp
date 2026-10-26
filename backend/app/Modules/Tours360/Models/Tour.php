@@ -2,18 +2,21 @@
 
 namespace App\Modules\Tours360\Models;
 
+use App\Modules\Property\Models\Property;
+use App\Modules\Tours360\Factories\TourFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
-use App\Modules\Tours360\Factories\TourFactory;
 
 class Tour extends Model
 {
     use HasFactory;
+
     protected static function newFactory()
     {
-        return \App\Modules\Tours360\Factories\TourFactory::new();
+        return TourFactory::new();
     }
 
     protected $fillable = [
@@ -32,7 +35,7 @@ class Tour extends Model
     protected static function booted(): void
     {
         static::creating(function (Tour $tour) {
-            $tour->slug ??= Str::slug($tour->title) . '-' . Str::random(6);
+            $tour->slug ??= Str::slug($tour->title).'-'.Str::random(6);
         });
     }
 
@@ -41,9 +44,13 @@ class Tour extends Model
         return $this->hasMany(Scene::class)->orderBy('sort_order');
     }
 
+    public function property(): HasOne
+    {
+        return $this->hasOne(Property::class);
+    }
+
     public function scopePublished($query)
     {
         return $query->where('is_published', true);
     }
-
 }

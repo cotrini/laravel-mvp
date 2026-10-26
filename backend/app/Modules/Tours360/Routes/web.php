@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Modules\Tours360\Http\Controllers\Tour360WebController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,14 +9,13 @@ use App\Modules\Tours360\Http\Controllers\Tour360WebController;
 |--------------------------------------------------------------------------
 |
 | Aquí registras las rutas web para el módulo de propiedades. Estas rutas
-| devuelven vistas HTML, renderizan componentes de Inertia o manejan 
+| devuelven vistas HTML, renderizan componentes de Inertia o manejan
 | formularios tradicionales con sesiones y cookies.
 |
 */
 
 // // Rutas públicas (accesibles para cualquier visitante de la web)
 Route::get('/tours', [Tour360WebController::class, 'index'])->name('tours360.index');
-
 
 // Rutas protegidas (ejemplo: solo para usuarios autenticados como agentes o administradores)
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -26,7 +25,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/tours/{id}/edit', [Tour360WebController::class, 'edit'])->name('tours360.edit');
     Route::put('/tours/{id}', [Tour360WebController::class, 'update'])->name('tours360.update');
     Route::delete('/tours/{id}', [Tour360WebController::class, 'destroy'])->name('tours360.destroy');
-    Route::put('/tours/{id}', [Tour360WebController::class, 'update'])->name('tours360.update');
 });
 
 Route::get('/tours/{id}', [Tour360WebController::class, 'show'])->name('tours360.show');

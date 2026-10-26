@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Media\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class MediaWebController extends Controller
 {
@@ -41,7 +42,7 @@ class MediaWebController extends Controller
             $file = $request->file('file');
             $filename = time() . '_' . $file->getClientOriginalName();
             $destinationPath = public_path('uploads/media');
-            
+
             // Crear la carpeta si no existe físicamente
             if (!File::exists($destinationPath)) {
                 File::makeDirectory($destinationPath, 0755, true);
@@ -109,8 +110,11 @@ class MediaWebController extends Controller
     {
         $media = Media::findOrFail($id);
 
-        // Eliminar el archivo físico de la carpeta pública si existe
-        if ($media->url_or_path && File::exists(public_path($media->url_or_path))) {
+        if ($media->type === 'blueprint'
+            && $media->property_id
+            && str_starts_with($media->url_or_path, "properties/{$media->property_id}/blueprints/")) {
+            Storage::disk('local')->delete($media->url_or_path);
+        } elseif ($media->url_or_path && File::exists(public_path($media->url_or_path))) {
             File::delete(public_path($media->url_or_path));
         }
 
@@ -119,5 +123,4 @@ class MediaWebController extends Controller
 
         return back()->with('success', 'Archivo multimedia eliminado correctamente.');
     }
-
 }
