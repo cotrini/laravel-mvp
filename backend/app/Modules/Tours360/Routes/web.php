@@ -21,6 +21,7 @@ Route::get('/tours', [Tour360WebController::class, 'index'])->name('tours360.ind
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/tours/create', [Tour360WebController::class, 'create'])->name('tours360.create');
     Route::post('/tours', [Tour360WebController::class, 'store'])->name('tours360.store');
+    Route::post('/tours/scene-images', [Tour360WebController::class, 'storeSceneImage'])->name('tours360.scene-images.store');
 
     Route::get('/tours/{id}/edit', [Tour360WebController::class, 'edit'])->name('tours360.edit');
     Route::put('/tours/{id}', [Tour360WebController::class, 'update'])->name('tours360.update');

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Tours360\Models;
 
+use App\Modules\Media\Support\PublicMediaUrl;
 use App\Modules\Property\Models\Property;
 use App\Modules\Tours360\Factories\TourFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,6 +38,11 @@ class Tour extends Model
         static::creating(function (Tour $tour) {
             $tour->slug ??= Str::slug($tour->title).'-'.Str::random(6);
         });
+    }
+
+    public function getPublicCoverUrlAttribute(): ?string
+    {
+        return filled($this->cover_url) ? PublicMediaUrl::from($this->cover_url) : null;
     }
 
     public function scenes(): HasMany

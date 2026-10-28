@@ -253,7 +253,7 @@
                         pitch: 0,
                         yaw: 0,
                         type: 'equirectangular',
-                        panorama: {{ Illuminate\Support\Js::from($tourScene->image_url) }},
+                        panorama: {{ Illuminate\Support\Js::from($tourScene->public_image_url) }},
                         hotSpots: [
                             @foreach($tourScene->hotspots as $hotspot)
                                 {

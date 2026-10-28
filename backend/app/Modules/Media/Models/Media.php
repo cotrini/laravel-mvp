@@ -2,6 +2,8 @@
 
 namespace App\Modules\Media\Models;
 
+use App\Modules\Media\Factories\MediaFactory;
+use App\Modules\Media\Support\PublicMediaUrl;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,10 +12,12 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Media extends Model
 {
     use HasFactory;
+
     protected static function newFactory()
     {
-    return \App\Modules\Media\Factories\MediaFactory::new();
+        return MediaFactory::new();
     }
+
     // Nombre explícito de la tabla en MySQL
     protected $table = 'media';
 
@@ -36,6 +40,11 @@ class Media extends Model
         'order' => 'integer',
         'meta' => 'array', // Convierte el JSON de MySQL a un Array de PHP automáticamente
     ];
+
+    public function getPublicUrlAttribute(): string
+    {
+        return PublicMediaUrl::from($this->url_or_path);
+    }
 
     /**
      * Relación directa con la Propiedad.

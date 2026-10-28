@@ -168,7 +168,7 @@
                         <article class="property-card catalog-property-card">
                             <a class="property-image" href="{{ route('properties.show', $property->id) }}" aria-label="Ver {{ $property->title }}">
                                 @if($primaryMedia)
-                                    <img src="{{ asset($primaryMedia->url_or_path) }}" alt="{{ $property->title }}" loading="lazy">
+                                    <img src="{{ $primaryMedia->public_url }}" alt="{{ $property->title }}" loading="lazy">
                                 @else
                                     <span class="property-image-placeholder" aria-hidden="true">
                                         <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

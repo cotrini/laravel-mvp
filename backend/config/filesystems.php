@@ -1,5 +1,16 @@
 <?php
 
+$r2Endpoint = env('CLOUDFLARE_R2_ENDPOINT');
+$r2EndpointParts = is_string($r2Endpoint) ? parse_url($r2Endpoint) : false;
+
+if (is_array($r2EndpointParts) && isset($r2EndpointParts['host'])) {
+    $r2Endpoint = ($r2EndpointParts['scheme'] ?? 'https').'://'.$r2EndpointParts['host'];
+
+    if (isset($r2EndpointParts['port'])) {
+        $r2Endpoint .= ':'.$r2EndpointParts['port'];
+    }
+}
+
 return [
 
     /*
@@ -58,6 +69,21 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+        ],
+
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID'),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('CLOUDFLARE_R2_BUCKET'),
+            'url' => env('CLOUDFLARE_R2_URL'),
+            'endpoint' => $r2Endpoint,
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'http' => [
+                'verify' => false, // Necesario en local para evitar el error cURL 60 de certificados
+            ],
         ],
 
     ],

@@ -32,7 +32,7 @@
                    class="group rounded-2xl overflow-hidden border border-[#e7e9ed] bg-white text-[#242424] shadow-sm hover:border-[#12877b] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div class="relative aspect-[4/3] overflow-hidden">
                         @if ($tour->cover_url)
-                            <img src="{{ $tour->cover_url }}" alt="{{ $tour->title }}"
+                            <img src="{{ $tour->public_cover_url }}" alt="{{ $tour->title }}"
                                  class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
                         @else
                             <div class="w-full h-full bg-[#f0f5f4] flex items-center justify-center text-[#69717d]">Sin imagen</div>

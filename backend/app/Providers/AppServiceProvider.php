@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Interfaces\ImageManagerInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,7 +16,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(
+            ImageManagerInterface::class,
+            fn (): ImageManagerInterface => ImageManager::usingDriver(GdDriver::class),
+        );
     }
 
     /**

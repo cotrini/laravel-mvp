@@ -1003,7 +1003,7 @@
             <nav class="property-media-rail" aria-label="Contenido multimedia">
                 @foreach($images->take(2) as $image)
                     <button type="button" class="property-media-tile" data-gallery-open aria-label="Abrir galería de fotos">
-                        <img src="{{ asset($image->url_or_path) }}" alt="" loading="lazy">
+                        <img src="{{ $image->public_url }}" alt="" loading="lazy">
                     </button>
                 @endforeach
 
@@ -1016,7 +1016,7 @@
 
                 <button type="button" class="property-media-tile property-media-tile--video" data-dialog-open="video" aria-label="{{ $video ? 'Ver video del inmueble' : 'Solicitar un video al propietario' }}">
                     @if($video && $primaryImage)
-                        <img src="{{ asset($primaryImage->url_or_path) }}" alt="" loading="lazy">
+                        <img src="{{ $primaryImage->public_url }}" alt="" loading="lazy">
                     @endif
                     <span class="tile-play-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
@@ -1058,7 +1058,7 @@
             <div class="property-gallery-main">
                 @if($primaryImage)
                     <button type="button" data-gallery-open aria-label="Ampliar fotos del inmueble">
-                        <img src="{{ asset($primaryImage->url_or_path) }}" alt="{{ $property->title }}">
+                        <img src="{{ $primaryImage->public_url }}" alt="{{ $property->title }}">
                     </button>
                 @else
                     <div class="property-gallery-placeholder" aria-label="Sin imagen disponible">
@@ -1186,7 +1186,7 @@
                         <article class="property-recommendation-card">
                             <a href="{{ route('properties.show', $otherProperty->id) }}" class="property-recommendation-image" aria-label="Ver {{ $otherProperty->title }}">
                                 @if($otherImage)
-                                    <img src="{{ asset($otherImage->url_or_path) }}" alt="{{ $otherProperty->title }}" loading="lazy">
+                                    <img src="{{ $otherImage->public_url }}" alt="{{ $otherProperty->title }}" loading="lazy">
                                 @else
                                     <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="m8 29 24-19 24 19"></path><path d="M14 27v27h36V27"></path><path d="M26 54V37h12v17"></path>
@@ -1220,7 +1220,7 @@
         <div class="property-dialog-content" data-dialog-content="gallery" hidden>
             <div class="property-dialog-gallery">
                 @foreach($images as $image)
-                    <img src="{{ asset($image->url_or_path) }}" alt="{{ $property->title }}" loading="lazy">
+                    <img src="{{ $image->public_url }}" alt="{{ $property->title }}" loading="lazy">
                 @endforeach
             </div>
         </div>
@@ -1228,7 +1228,7 @@
         <div class="property-dialog-content" data-dialog-content="video" hidden>
             @if($video)
                 <video class="property-dialog-video" controls preload="metadata">
-                    <source src="{{ asset($video->url_or_path) }}" type="video/mp4">
+                    <source src="{{ $video->public_url }}" type="video/mp4">
                     Tu navegador no soporta la reproducción de video.
                 </video>
             @else

@@ -6,7 +6,7 @@
 <header class="relative overflow-hidden bg-[#202b2d]">
     <div class="absolute inset-0">
         @if ($tour->cover_url)
-            <img src="{{ $tour->cover_url }}" alt="{{ $tour->title }}" class="w-full h-full object-cover">
+            <img src="{{ $tour->public_cover_url }}" alt="{{ $tour->title }}" class="w-full h-full object-cover">
         @endif
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/30"></div>
     </div>
@@ -26,7 +26,7 @@
         @foreach ($tour->scenes as $i => $scene)
             <a href="{{ route('tours360.viewer', [$tour->slug, $scene->id]) }}"
                class="group relative aspect-video rounded-2xl overflow-hidden border border-[#e7e9ed] hover:border-[#12877b] transition-all duration-300 hover:-translate-y-1 shadow-sm">
-                <img src="{{ $scene->image_url }}" alt="{{ $scene->title }}"
+                <img src="{{ $scene->public_image_url }}" alt="{{ $scene->title }}"
                      class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
                 <div class="absolute bottom-4 left-4 right-4">

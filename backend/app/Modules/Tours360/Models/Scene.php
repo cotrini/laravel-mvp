@@ -2,17 +2,20 @@
 
 namespace App\Modules\Tours360\Models;
 
+use App\Modules\Media\Support\PublicMediaUrl;
+use App\Modules\Tours360\Factories\SceneFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Scene extends Model
 {
     use HasFactory;
+
     protected static function newFactory()
     {
-        return \App\Modules\Tours360\Factories\SceneFactory::new();
+        return SceneFactory::new();
     }
 
     protected $fillable = [
@@ -22,6 +25,11 @@ class Scene extends Model
         'image_url',
         'sort_order',
     ];
+
+    public function getPublicImageUrlAttribute(): string
+    {
+        return PublicMediaUrl::from($this->image_url);
+    }
 
     public function tour(): BelongsTo
     {

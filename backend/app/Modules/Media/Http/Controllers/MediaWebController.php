@@ -4,9 +4,12 @@ namespace App\Modules\Media\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Media\Models\Media;
+use App\Modules\Property\Models\Property;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
+use Throwable;
 
 class MediaWebController extends Controller
 {
@@ -16,6 +19,7 @@ class MediaWebController extends Controller
     public function index()
     {
         $mediaItems = Media::latest()->paginate(15);
+
         return view('media::index', compact('mediaItems'));
     }
 
@@ -32,32 +36,45 @@ class MediaWebController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'file' => 'required|file|max:10240', // Máximo 10MB
-            'type' => 'required|string',
-            'property_id' => 'nullable|exists:properties,id',
+        $type = $request->input('type');
+        $fileRules = match ($type) {
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'blueprint' => ['required', 'file', 'mimes:pdf', 'extensions:pdf', 'max:10240'],
+            'video' => ['required', 'file', 'mimes:mp4', 'extensions:mp4', 'max:102400'],
+            'virtual_tour_360' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:51200'],
+            default => ['required', 'file', 'max:10240'],
+        };
+
+        $validated = $request->validate([
+            'file' => $fileRules,
+            'type' => ['required', 'string', 'max:50'],
+            'property_id' => ['required', 'integer', 'exists:properties,id'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'is_primary' => ['sometimes', 'boolean'],
         ]);
 
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $destinationPath = public_path('uploads/media');
+        $file = $validated['file'];
+        $property = Property::query()->findOrFail($validated['property_id']);
+        $directory = $this->storageDirectory($validated['type'], $property->id);
+        $path = $file->store($directory, 'r2');
 
-            // Crear la carpeta si no existe físicamente
-            if (!File::exists($destinationPath)) {
-                File::makeDirectory($destinationPath, 0755, true);
-            }
+        if (! is_string($path)) {
+            throw new RuntimeException('No fue posible guardar el archivo multimedia.');
+        }
 
-            $file->move($destinationPath, $filename);
-            $urlOrPath = 'uploads/media/' . $filename;
-
-            Media::create([
-                'property_id' => $request->input('property_id'),
-                'type' => $request->input('type', 'image'),
-                'url_or_path' => $urlOrPath,
-                'title' => $request->input('title', $file->getClientOriginalName()),
-                'is_primary' => $request->input('is_primary', false),
+        try {
+            $property->media()->create([
+                'mediable_type' => Property::class,
+                'mediable_id' => $property->id,
+                'type' => $validated['type'],
+                'url_or_path' => $path,
+                'title' => $validated['title'] ?? $file->getClientOriginalName(),
+                'is_primary' => $validated['is_primary'] ?? false,
             ]);
+        } catch (Throwable $exception) {
+            Storage::disk('r2')->delete($path);
+
+            throw $exception;
         }
 
         return back()->with('success', 'Archivo multimedia subido exitosamente.');
@@ -69,6 +86,7 @@ class MediaWebController extends Controller
     public function show($id)
     {
         $media = Media::findOrFail($id);
+
         return view('media::show', compact('media'));
     }
 
@@ -78,6 +96,7 @@ class MediaWebController extends Controller
     public function edit($id)
     {
         $media = Media::findOrFail($id);
+
         return view('media::edit', compact('media'));
     }
 
@@ -110,17 +129,34 @@ class MediaWebController extends Controller
     {
         $media = Media::findOrFail($id);
 
-        if ($media->type === 'blueprint'
-            && $media->property_id
-            && str_starts_with($media->url_or_path, "properties/{$media->property_id}/blueprints/")) {
-            Storage::disk('local')->delete($media->url_or_path);
-        } elseif ($media->url_or_path && File::exists(public_path($media->url_or_path))) {
-            File::delete(public_path($media->url_or_path));
+        $path = str_replace('\\', '/', $media->url_or_path);
+        $r2Directory = $this->storageDirectory($media->type, $media->property_id);
+
+        if (str_starts_with($path, $r2Directory.'/')) {
+            Storage::disk('r2')->delete($path);
+        } elseif ($media->type === 'blueprint' && str_starts_with($path, "properties/{$media->property_id}/blueprints/")) {
+            Storage::disk('local')->delete($path);
+        } elseif (str_starts_with($path, 'storage/properties/') && $media->type === 'video') {
+            Storage::disk('public')->delete(substr($path, strlen('storage/')));
+        } elseif ($path && File::exists(public_path($path))) {
+            File::delete(public_path($path));
         }
 
         // Eliminar registro de la base de datos
         $media->delete();
 
         return back()->with('success', 'Archivo multimedia eliminado correctamente.');
+    }
+
+    private function storageDirectory(string $type, int $propertyId): string
+    {
+        $folder = match ($type) {
+            'blueprint' => 'PlansPdf',
+            'video' => 'Videos',
+            'virtual_tour_360', 'model_3d' => 'Tours360',
+            default => 'Pictures',
+        };
+
+        return "{$folder}/{$propertyId}";
     }
 }

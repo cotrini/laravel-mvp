@@ -131,6 +131,20 @@
                     </div>
                 </section>
 
+                <section class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:p-6" aria-labelledby="property-images-heading">
+                    <div>
+                        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Contenido multimedia</p>
+                        <h2 id="property-images-heading" class="mt-1 text-lg font-extrabold text-slate-900">Fotos del inmueble</h2>
+                        <p class="mt-1 text-sm text-slate-500">Puedes cargar hasta 20 imágenes JPG, PNG o WebP de máximo 10 MB cada una.</p>
+                    </div>
+                    <div>
+                        <label for="images" class="{{ $labelClasses }}">Seleccionar fotos</label>
+                        <input type="file" name="images[]" id="images" multiple accept="image/jpeg,image/png" class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
+                        @error('images')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
+                        @error('images.*')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
+                    </div>
+                </section>
+
                 <section>
                     <label for="description" class="{{ $labelClasses }}">Descripción del inmueble</label>
                     <textarea name="description" id="description" rows="6" required placeholder="Describe la distribución, el estado y los detalles que hacen especial esta propiedad." class="{{ $inputClasses }} resize-y">{{ old('description') }}</textarea>

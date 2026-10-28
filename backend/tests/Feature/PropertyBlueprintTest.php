@@ -20,7 +20,7 @@ class PropertyBlueprintTest extends TestCase
         $owner = User::factory()->create();
         $department = Department::query()->firstOrCreate(['name' => 'Caldas']);
         $city = City::query()->firstOrCreate(['department_id' => $department->id, 'name' => 'Manizales']);
-        Storage::fake('local');
+        Storage::fake('r2');
         $this->actingAs($owner);
 
         $response = $this->post(route('properties.store'), [
@@ -34,24 +34,29 @@ class PropertyBlueprintTest extends TestCase
             'neighborhood' => 'Chipre',
             'is_furnished' => '0',
             'has_elevator' => '0',
+            'images' => [UploadedFile::fake()->image('fachada.jpg')],
             'blueprint' => UploadedFile::fake()->createWithContent('planos.pdf', $this->pdfWithPages(2)),
         ]);
 
         $property = Property::query()->where('title', 'Apartamento con planos')->firstOrFail();
         $media = $property->media()->where('type', 'blueprint')->firstOrFail();
+        $picture = $property->media()->where('type', 'image')->firstOrFail();
         $response->assertRedirect(route('properties.show', $property));
         $this->assertDatabaseHas('media', [
             'property_id' => $property->id,
             'type' => 'blueprint',
         ]);
-        Storage::disk('local')->assertExists($media->url_or_path);
+        Storage::disk('r2')->assertExists($media->url_or_path);
+        Storage::disk('r2')->assertExists($picture->url_or_path);
+        $this->assertStringStartsWith("PlansPdf/{$property->id}/", $media->url_or_path);
+        $this->assertStringStartsWith("Pictures/{$property->id}/", $picture->url_or_path);
     }
 
     public function test_owner_can_upload_a_pdf_with_ten_or_fewer_pages(): void
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
-        Storage::fake('local');
+        Storage::fake('r2');
         $this->actingAs($owner);
 
         $response = $this->post(route('properties.blueprint.store', $property), [
@@ -67,7 +72,29 @@ class PropertyBlueprintTest extends TestCase
             'type' => 'blueprint',
             'url_or_path' => $media->url_or_path,
         ]);
-        Storage::disk('local')->assertExists($media->url_or_path);
+        Storage::disk('r2')->assertExists($media->url_or_path);
+        $this->assertStringStartsWith("PlansPdf/{$property->id}/", $media->url_or_path);
+
+        $this->get(route('properties.blueprint.show', $property))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    public function test_existing_local_blueprint_files_remain_available(): void
+    {
+        $owner = User::factory()->create();
+        $property = $this->createProperty($owner);
+        $path = "properties/{$property->id}/blueprints/legacy.pdf";
+        Storage::fake('local');
+        Storage::disk('local')->put($path, $this->pdfWithPages(1));
+        $property->media()->create([
+            'type' => 'blueprint',
+            'url_or_path' => $path,
+            'title' => 'Planos anteriores',
+            'mediable_type' => Property::class,
+            'mediable_id' => $property->id,
+        ]);
 
         $this->get(route('properties.blueprint.show', $property))
             ->assertOk()
@@ -79,7 +106,7 @@ class PropertyBlueprintTest extends TestCase
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
-        Storage::fake('local');
+        Storage::fake('r2');
         $this->actingAs($owner);
 
         $response = $this->from(route('properties.edit', $property))->post(route('properties.blueprint.store', $property), [
@@ -93,7 +120,7 @@ class PropertyBlueprintTest extends TestCase
             'property_id' => $property->id,
             'type' => 'blueprint',
         ]);
-        Storage::disk('local')->assertDirectoryEmpty("properties/{$property->id}/blueprints");
+        Storage::disk('r2')->assertDirectoryEmpty("PlansPdf/{$property->id}");
     }
 
     public function test_owner_cannot_upload_a_pdf_larger_than_ten_megabytes(): void

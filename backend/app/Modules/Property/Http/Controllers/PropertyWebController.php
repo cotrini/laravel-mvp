@@ -4,6 +4,7 @@ namespace App\Modules\Property\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Mail\PropertyMediaRequest as PropertyMediaRequestMail;
+use App\Modules\Media\Support\PublicMediaUrl;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
@@ -15,11 +16,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class PropertyWebController extends Controller
@@ -27,6 +31,10 @@ class PropertyWebController extends Controller
     private const MAX_BLUEPRINT_SIZE_KB = 10240;
 
     private const MAX_BLUEPRINT_PAGES = 10;
+
+    private const MAX_PROPERTY_IMAGE_SIZE_KB = 15360;
+
+    private const MAX_PROPERTY_IMAGES = 20;
 
     public function __construct(
         private readonly Mp4DurationValidator $durationValidator,
@@ -169,13 +177,26 @@ class PropertyWebController extends Controller
         ]);
     }
 
-    public function showBlueprint(Property $property): BinaryFileResponse
+    public function showBlueprint(Property $property): BinaryFileResponse|StreamedResponse
     {
         $blueprint = $property->media()->where('type', 'blueprint')->firstOrFail();
-        $expectedDirectory = "properties/{$property->id}/blueprints/";
         $path = $blueprint->url_or_path;
+        $r2Directory = "PlansPdf/{$property->id}/";
 
-        abort_unless(str_starts_with($path, $expectedDirectory), 404);
+        if (str_starts_with($path, $r2Directory)) {
+            $disk = Storage::disk('r2');
+            abort_unless($disk->exists($path), 404);
+
+            return $disk->response($path, 'planos-arquitectonicos.pdf', [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="planos-arquitectonicos.pdf"',
+                'X-Content-Type-Options' => 'nosniff',
+                'Content-Security-Policy' => "sandbox; default-src 'none';",
+            ]);
+        }
+
+        $legacyDirectory = "properties/{$property->id}/blueprints/";
+        abort_unless(str_starts_with($path, $legacyDirectory), 404);
 
         $disk = Storage::disk('local');
         abort_unless($disk->exists($path), 404);
@@ -246,16 +267,23 @@ class PropertyWebController extends Controller
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
             'tour_id' => 'nullable|exists:tours,id',
+            'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
+            'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
             'blueprint' => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:'.self::MAX_BLUEPRINT_SIZE_KB],
             // Add other fields as necessary
         ], $this->propertyDetailsRules()), [
             'blueprint.mimes' => 'El archivo debe ser un documento PDF válido.',
             'blueprint.extensions' => 'El archivo debe tener la extensión .pdf.',
             'blueprint.max' => 'El PDF no puede superar los 10 MB.',
+            'images.*.required' => 'Selecciona una fotografía válida.',
+            'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
+            'images.*.image' => 'El archivo debe ser una imagen válida.',
+            'images.*.mimes' => 'La fotografía debe estar en formato JPEG o PNG.',
+            'images.*.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
         ]);
 
         $blueprintFile = $validatedData['blueprint'] ?? null;
-        unset($validatedData['blueprint']);
+        unset($validatedData['blueprint'], $validatedData['images']);
         $validatedData = $this->replaceLocationIdsWithNames($validatedData);
 
         if ($blueprintFile instanceof UploadedFile && ! $this->pdfPageCountValidator->isWithinPageLimit($blueprintFile, self::MAX_BLUEPRINT_PAGES)) {
@@ -296,7 +324,7 @@ class PropertyWebController extends Controller
                 ->withInput();
         }
 
-        $videoPath = $video->storePublicly("properties/{$property->id}/videos", 'public');
+        $videoPath = $video->store("Videos/{$property->id}", 'r2');
 
         if (! is_string($videoPath)) {
             throw new RuntimeException('No fue posible guardar el video de la propiedad.');
@@ -308,7 +336,7 @@ class PropertyWebController extends Controller
         try {
             $mediaData = [
                 'type' => 'video',
-                'url_or_path' => 'storage/'.$videoPath,
+                'url_or_path' => $videoPath,
                 'title' => $video->getClientOriginalName(),
                 'mediable_type' => Property::class,
                 'mediable_id' => $property->id,
@@ -320,18 +348,13 @@ class PropertyWebController extends Controller
                 $property->media()->create($mediaData);
             }
         } catch (Throwable $exception) {
-            Storage::disk('public')->delete($videoPath);
+            $this->cleanupR2Uploads([$videoPath]);
 
             throw $exception;
         }
 
         if ($previousVideoPath !== null) {
-            $previousVideoPath = str_replace('\\', '/', $previousVideoPath);
-            $previousStoragePrefix = "storage/properties/{$property->id}/videos/";
-
-            if (str_starts_with($previousVideoPath, $previousStoragePrefix)) {
-                Storage::disk('public')->delete(substr($previousVideoPath, strlen('storage/')));
-            }
+            $this->deleteStoredMedia($previousVideoPath, $property->id, 'video');
         }
 
         return redirect()->route('dashboard.index')->with('success', 'El video se agregó a la propiedad.');
@@ -369,7 +392,7 @@ class PropertyWebController extends Controller
 
     private function persistBlueprintFile(Property $property, UploadedFile $blueprintFile): void
     {
-        $blueprintPath = $blueprintFile->store("properties/{$property->id}/blueprints", 'local');
+        $blueprintPath = $blueprintFile->store("PlansPdf/{$property->id}", 'r2');
 
         if (! is_string($blueprintPath)) {
             throw new RuntimeException('No fue posible guardar los planos arquitectónicos.');
@@ -393,13 +416,13 @@ class PropertyWebController extends Controller
                 $property->media()->create($mediaData);
             }
         } catch (Throwable $exception) {
-            Storage::disk('local')->delete($blueprintPath);
+            $this->cleanupR2Uploads([$blueprintPath]);
 
             throw $exception;
         }
 
-        if ($previousPath !== null && str_starts_with($previousPath, "properties/{$property->id}/blueprints/")) {
-            Storage::disk('local')->delete($previousPath);
+        if ($previousPath !== null) {
+            $this->deleteStoredMedia($previousPath, $property->id, 'blueprint');
         }
     }
 
@@ -426,9 +449,18 @@ class PropertyWebController extends Controller
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
             'tour_id' => 'nullable|exists:tours,id',
+            'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
+            'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
             // Add other fields as necessary
-        ], $this->propertyDetailsRules()));
+        ], $this->propertyDetailsRules()), [
+            'images.*.required' => 'Selecciona una fotografía válida.',
+            'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
+            'images.*.image' => 'El archivo debe ser una imagen válida.',
+            'images.*.mimes' => 'La fotografía debe estar en formato JPEG o PNG.',
+            'images.*.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
+        ]);
 
+        unset($validatedData['images']);
         $validatedData = $this->replaceLocationIdsWithNames($validatedData);
         $property->update($validatedData);
         $this->handlePropertyImages($request, $property);
@@ -443,40 +475,124 @@ class PropertyWebController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        $blueprintPaths = $property->media()
-            ->where('type', 'blueprint')
-            ->pluck('url_or_path');
-        $property->delete();
+        $mediaItems = $property->media()->get(['type', 'url_or_path']);
+        $tour = $property->tour()->with('scenes')->first();
+        $tourPaths = collect([$tour?->cover_url])
+            ->concat($tour?->scenes->pluck('image_url') ?? [])
+            ->map(fn (?string $location): ?string => $location !== null ? PublicMediaUrl::r2Path($location) : null)
+            ->filter(fn (?string $path): bool => is_string($path) && str_starts_with($path, "Tours360/{$property->id}/"))
+            ->unique()
+            ->values()
+            ->all();
 
-        foreach ($blueprintPaths as $path) {
-            if (str_starts_with($path, "properties/{$property->id}/blueprints/")) {
-                Storage::disk('local')->delete($path);
+        DB::transaction(function () use ($property, $tour): void {
+            if ($tour !== null) {
+                $property->tour()->dissociate();
+                $property->save();
+                $tour->delete();
             }
+
+            $property->delete();
+        });
+
+        if ($tourPaths !== [] && ! Storage::disk('r2')->delete($tourPaths)) {
+            throw new RuntimeException('No fue posible eliminar las imágenes del recorrido 360° en Cloudflare R2.');
+        }
+
+        foreach ($mediaItems as $mediaItem) {
+            $this->deleteStoredMedia($mediaItem->url_or_path, $property->id, $mediaItem->type);
         }
 
         return redirect()->route('properties.index');
     }
 
-    private function handlePropertyImages(Request $request, Property $property)
+    private function handlePropertyImages(Request $request, Property $property): void
     {
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                $destinationPath = public_path('uploads/media');
+        if (! $request->hasFile('images')) {
+            return;
+        }
 
-                if (! \File::exists($destinationPath)) {
-                    \File::makeDirectory($destinationPath, 0755, true);
+        $storedPaths = [];
+
+        try {
+            DB::transaction(function () use ($request, $property, &$storedPaths): void {
+                foreach ($request->file('images') as $file) {
+                    $path = $file->store("Pictures/{$property->id}", 'r2');
+
+                    if (! is_string($path)) {
+                        throw new RuntimeException('No fue posible guardar las fotos de la propiedad.');
+                    }
+
+                    $storedPaths[] = $path;
+
+                    $property->media()->create([
+                        'type' => 'image',
+                        'url_or_path' => $path,
+                        'title' => $file->getClientOriginalName(),
+                        'mediable_type' => Property::class,
+                        'mediable_id' => $property->id,
+                    ]);
                 }
+            });
+        } catch (Throwable $exception) {
+            $this->cleanupR2Uploads($storedPaths);
 
-                $filename = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
-                $file->move($destinationPath, $filename);
+            throw $exception;
+        }
+    }
 
-                $property->media()->create([
-                    'type' => 'image',
-                    'url_or_path' => 'uploads/media/'.$filename,
-                    'title' => $file->getClientOriginalName(),
-                    'mediable_type' => get_class($property),
-                    'mediable_id' => $property->id,
-                ]);
+    /**
+     * @param  array<int, string>  $storedPaths
+     */
+    private function cleanupR2Uploads(array $storedPaths): void
+    {
+        if ($storedPaths === []) {
+            return;
+        }
+
+        try {
+            if (! Storage::disk('r2')->delete($storedPaths)) {
+                report(new RuntimeException('No fue posible limpiar los archivos R2 tras un fallo de carga.'));
+            }
+        } catch (Throwable $cleanupException) {
+            report($cleanupException);
+        }
+    }
+
+    private function deleteStoredMedia(string $path, int $propertyId, string $type): void
+    {
+        $path = str_replace('\\', '/', $path);
+        $r2Directory = match ($type) {
+            'image' => "Pictures/{$propertyId}/",
+            'blueprint' => "PlansPdf/{$propertyId}/",
+            'video' => "Videos/{$propertyId}/",
+            'virtual_tour_360', 'model_3d' => "Tours360/{$propertyId}/",
+            default => null,
+        };
+
+        if ($r2Directory !== null && str_starts_with($path, $r2Directory)) {
+            Storage::disk('r2')->delete($path);
+
+            return;
+        }
+
+        if ($type === 'blueprint' && str_starts_with($path, "properties/{$propertyId}/blueprints/")) {
+            Storage::disk('local')->delete($path);
+
+            return;
+        }
+
+        if ($type === 'video' && str_starts_with($path, "storage/properties/{$propertyId}/videos/")) {
+            Storage::disk('public')->delete(substr($path, strlen('storage/')));
+
+            return;
+        }
+
+        if (str_starts_with($path, 'uploads/media/')) {
+            $publicPath = public_path($path);
+
+            if (File::exists($publicPath)) {
+                File::delete($publicPath);
             }
         }
     }

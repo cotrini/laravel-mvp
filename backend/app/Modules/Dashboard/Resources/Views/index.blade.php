@@ -72,7 +72,7 @@
                                         <div class="dashboard-property">
                                             <a href="{{ route('properties.show', $property->id) }}" class="dashboard-property-image" aria-label="Ver {{ $property->title }}">
                                                 @if($previewImage)
-                                                    <img src="{{ asset($previewImage->url_or_path) }}" alt="{{ $property->title }}" loading="lazy">
+                                                    <img src="{{ $previewImage->public_url }}" alt="{{ $property->title }}" loading="lazy">
                                                 @else
                                                     <span aria-hidden="true">
                                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -137,7 +137,7 @@
                                     <td>
                                         <div class="dashboard-video-actions">
                                             @if($propertyVideo)
-                                                <a href="{{ asset($propertyVideo->url_or_path) }}" target="_blank" rel="noopener noreferrer" class="dashboard-video-link">
+                                                <a href="{{ $propertyVideo->public_url }}" target="_blank" rel="noopener noreferrer" class="dashboard-video-link">
                                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                         <path d="m9 6 10 6-10 6V6Z"></path><rect x="3" y="3" width="18" height="18" rx="3"></rect>
                                                     </svg>

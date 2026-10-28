@@ -49,7 +49,7 @@
                         @foreach($property->media as $mediaItem)
                             <article class="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-3">
                                 @if($mediaItem->type === 'image')
-                                    <img src="{{ asset($mediaItem->url_or_path) }}" alt="Foto del inmueble {{ $property->title }}" class="h-32 w-full rounded-xl object-cover">
+                                    <img src="{{ $mediaItem->public_url }}" alt="Foto del inmueble {{ $property->title }}" class="h-32 w-full rounded-xl object-cover">
                                 @elseif($mediaItem->type === 'blueprint')
                                     <a href="{{ route('properties.blueprint.show', $property->id) }}" target="_blank" rel="noopener noreferrer" class="grid h-32 place-items-center rounded-xl bg-teal-50 px-3 text-center text-sm font-bold text-teal-800 transition hover:bg-teal-100">
                                         Ver planos PDF
@@ -221,14 +221,8 @@
                     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         <div>
                             <label for="images" class="{{ $labelClasses }}">Agregar fotos a la galería</label>
-                            <input type="file" name="images[]" id="images" multiple accept="image/*" class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
+                            <input type="file" name="images[]" id="images" multiple accept="image/jpeg,image/png" class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
                             @error('images.*')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label for="video" class="{{ $labelClasses }}">Agregar video</label>
-                            <input type="file" name="video" id="video" accept="video/*" class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
-                            @error('video')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
                         </div>
 
                         <div>
@@ -261,6 +255,29 @@
                     </button>
                 </div>
             </form>
+
+            <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-video-heading">
+                <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Contenido multimedia</p>
+                <h2 id="property-video-heading" class="mt-1 text-xl font-extrabold text-slate-900">Video del inmueble</h2>
+                <p class="mt-2 text-sm text-slate-600">Admite videos MP4 de hasta 100 MB y 1 minuto.</p>
+                @php($video = $property->media->firstWhere('type', 'video'))
+                @if($video)
+                    <a href="{{ $video->public_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800 transition hover:bg-teal-100">
+                        Ver video actual
+                    </a>
+                @endif
+                <form action="{{ route('properties.video.store', $property) }}" method="POST" enctype="multipart/form-data" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                    @csrf
+                    <div class="flex-1">
+                        <label for="video" class="{{ $labelClasses }}">{{ $video ? 'Reemplazar video' : 'Seleccionar video MP4' }}</label>
+                        <input type="file" name="video" id="video" accept="video/mp4,.mp4" required class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
+                        @error('video')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
+                    </div>
+                    <button type="submit" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-800 px-6 text-sm font-extrabold text-white transition hover:bg-teal-900">
+                        {{ $video ? 'Actualizar video' : 'Subir video' }}
+                    </button>
+                </form>
+            </section>
         </div>
     </main>
     <script>
