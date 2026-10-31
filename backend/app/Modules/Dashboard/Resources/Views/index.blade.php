@@ -7,12 +7,19 @@
         <section class="dashboard-heading">
             <div>
                 <p class="dashboard-eyebrow">Panel de control</p>
-                <h1>Mis inmuebles</h1>
-                <p>Hola, {{ $user->name }}. Administra tus publicaciones, medios y recorridos.</p>
+                <h1>{{ $user->isAdmin() ? 'Todos los inmuebles' : ($user->isFilmmaker() ? 'Inmuebles asignados' : 'Mis inmuebles') }}</h1>
+                <p>Hola, {{ $user->name }}. {{ $user->isFilmmaker() ? 'Carga videos y recorridos 360° en los inmuebles asignados.' : 'Administra tus publicaciones, medios y recorridos.' }}</p>
             </div>
-            <a href="{{ route('properties.create') }}" class="dashboard-add-button">
-                <span aria-hidden="true">+</span> Publicar inmueble
-            </a>
+            @unless($user->isFilmmaker())
+                <a href="{{ route('properties.create') }}" class="dashboard-add-button">
+                    <span aria-hidden="true">+</span> Publicar inmueble
+                </a>
+            @endunless
+            @can('manage-users')
+                <a href="{{ route('admin.users.index') }}" class="dashboard-add-button">
+                    Administrar cuentas
+                </a>
+            @endcan
             @can('manage-location-catalog')
                 <a href="{{ route('location-catalog.index') }}" class="dashboard-add-button">
                     Administrar ubicaciones
@@ -114,16 +121,18 @@
                                                     </svg>
                                                     Editar
                                                 </a>
-                                                <form action="{{ route('tours360.destroy', $property->tour->id) }}" method="POST" onsubmit="return confirm('¿Eliminar el recorrido 360° de este inmueble?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--delete">
-                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                            <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"></path>
-                                                        </svg>
-                                                        Eliminar
-                                                    </button>
-                                                </form>
+                                                @unless($user->isFilmmaker())
+                                                    <form action="{{ route('tours360.destroy', $property->tour->id) }}" method="POST" onsubmit="return confirm('¿Eliminar el recorrido 360° de este inmueble?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="dashboard-action-button dashboard-action-button--delete">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"></path>
+                                                            </svg>
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
+                                                @endunless
                                             </div>
                                         @else
                                             <a href="{{ route('tours360.create', ['property_id' => $property->id]) }}" class="dashboard-action-button dashboard-action-button--video">
@@ -163,12 +172,14 @@
                                     <td>
                                         <div class="dashboard-property-actions">
                                             <a href="{{ route('properties.show', $property->id) }}" class="dashboard-action-button dashboard-action-button--view">Ver</a>
-                                            <a href="{{ route('properties.edit', $property->id) }}" class="dashboard-action-button dashboard-action-button--edit">Editar</a>
-                                            <form action="{{ route('properties.destroy', $property->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta propiedad?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="dashboard-action-button dashboard-action-button--delete">Eliminar</button>
-                                            </form>
+                                            @unless($user->isFilmmaker())
+                                                <a href="{{ route('properties.edit', $property->id) }}" class="dashboard-action-button dashboard-action-button--edit">Editar</a>
+                                                <form action="{{ route('properties.destroy', $property->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta propiedad?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--delete">Eliminar</button>
+                                                </form>
+                                            @endunless
                                         </div>
                                     </td>
                                 </tr>
@@ -183,9 +194,11 @@
             @else
                 <div class="dashboard-empty">
                     <span class="dashboard-empty-icon" aria-hidden="true">⌂</span>
-                    <h3>Aún no has publicado inmuebles</h3>
-                    <p>Publica tu primer inmueble para comenzar a administrarlo desde aquí.</p>
-                    <a href="{{ route('properties.create') }}" class="dashboard-add-button">Publicar inmueble</a>
+                    <h3>{{ $user->isFilmmaker() ? 'Aún no tienes inmuebles asignados' : 'Aún no has publicado inmuebles' }}</h3>
+                    @unless($user->isFilmmaker())
+                        <p>Publica tu primer inmueble para comenzar a administrarlo desde aquí.</p>
+                        <a href="{{ route('properties.create') }}" class="dashboard-add-button">Publicar inmueble</a>
+                    @endunless
                 </div>
             @endif
         </section>

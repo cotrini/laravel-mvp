@@ -15,17 +15,26 @@ class DashboardWebController extends Controller
     {
         $user = Auth::user();
 
-        // Obtener las propiedades pertenecientes al usuario autenticado con sus medios
-        $properties = Property::where('user_id', $user->id)
-            ->with(['media', 'tour'])
+        $propertiesQuery = Property::query();
+
+        if ($user->isFilmmaker()) {
+            $propertiesQuery->whereIn(
+                'id',
+                $user->assignedProperties()->select('properties.id'),
+            );
+        } elseif (! $user->isAdmin()) {
+            $propertiesQuery->where('user_id', $user->id);
+        }
+
+        $statsQuery = clone $propertiesQuery;
+        $properties = $propertiesQuery->with(['media', 'tour'])
             ->latest()
             ->paginate(10);
 
-        // Métricas básicas para las tarjetas del panel
         $stats = [
-            'total_properties' => Property::where('user_id', $user->id)->count(),
-            'published_properties' => Property::where('user_id', $user->id)->where('status', 'publicado')->count(),
-            'pending_properties' => Property::where('user_id', $user->id)->where('status', 'pendiente')->count(),
+            'total_properties' => (clone $statsQuery)->count(),
+            'published_properties' => (clone $statsQuery)->where('status', 'publicado')->count(),
+            'pending_properties' => (clone $statsQuery)->where('status', 'pendiente')->count(),
         ];
 
         return view('dashboard::index', compact('user', 'properties', 'stats'));

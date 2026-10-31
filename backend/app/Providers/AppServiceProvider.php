@@ -27,8 +27,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::define('manage-users', function (User $user): bool {
+            return $user->isAdmin();
+        });
+
         Gate::define('manage-location-catalog', function (User $user): bool {
-            return in_array(
+            return $user->isAdmin() || in_array(
                 mb_strtolower($user->email),
                 config('location.admin_emails', []),
                 true,

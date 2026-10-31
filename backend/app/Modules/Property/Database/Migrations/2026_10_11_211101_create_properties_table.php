@@ -19,7 +19,7 @@ return new class extends Migration
 
             $table->string('title');                    // Título del anuncio (ej: "Hermoso apartamento en Chipre")
             $table->text('description');                // Descripción detallada
-            $table->decimal('price', 12, 2);            // Precio del inmueble (soporta cifras altas en pesos colombianos)
+            $table->unsignedBigInteger('price');            // Precio del inmueble (soporta cifras altas en pesos colombianos)
             $table->string('property_type');            // Tipo: Casa, Apartamento, Finca, Lote, etc.
             $table->string('status')->default('active'); 
             

@@ -244,8 +244,7 @@ class Tour360ManagementTest extends TestCase
 
         foreach ($stagedPaths as $stagedPath) {
             Storage::disk('r2')->assertExists($stagedPath);
-            $this->assertStringStartsWith("Tours360/{$property->id}/", $stagedPath);
-            $this->assertStringNotContainsString('/pending/', $stagedPath);
+            $this->assertStringStartsWith("Tours360/{$property->id}/pending/", $stagedPath);
         }
 
         $saveResponse = $this->post(route('tours360.store'), [
@@ -267,11 +266,19 @@ class Tour360ManagementTest extends TestCase
         $saveResponse->assertRedirect(route('dashboard.index'));
         $this->assertCount(5, $scenes);
         $this->assertCount(5, $savedPaths);
+        $savedUrls = array_map(
+            fn (string $path): string => Storage::disk('r2')->url($path),
+            $savedPaths,
+        );
 
         foreach ($scenes as $index => $scene) {
             $this->assertStringNotContainsString('/pending/', $scene->image_url);
-            $this->assertSame(Storage::disk('r2')->url($stagedPaths[$index]), $scene->image_url);
-            $this->assertSame($originalImages[$index], Storage::disk('r2')->get($stagedPaths[$index]));
+            $this->assertContains($scene->image_url, $savedUrls);
+            Storage::disk('r2')->assertMissing($stagedPaths[$index]);
+        }
+
+        foreach ($savedPaths as $index => $savedPath) {
+            $this->assertSame($originalImages[$index], Storage::disk('r2')->get($savedPath));
         }
     }
 

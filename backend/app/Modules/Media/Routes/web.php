@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Modules\Media\Http\Controllers\MediaWebController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,8 +15,11 @@ use App\Modules\Media\Http\Controllers\MediaWebController;
 */
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/media', [MediaWebController::class, 'index'])->name('media.index');
-    Route::get('/media/create', [MediaWebController::class, 'create'])->name('media.create');
+    Route::middleware('can:manage-users')->group(function () {
+        Route::get('/media', [MediaWebController::class, 'index'])->name('media.index');
+        Route::get('/media/create', [MediaWebController::class, 'create'])->name('media.create');
+    });
+
     Route::post('/media', [MediaWebController::class, 'store'])->name('media.store');
     Route::get('/media/{id}', [MediaWebController::class, 'show'])->name('media.show');
     Route::get('/media/{id}/edit', [MediaWebController::class, 'edit'])->name('media.edit');

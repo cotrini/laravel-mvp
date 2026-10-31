@@ -2,32 +2,23 @@
 
 namespace App\Modules\User\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use App\Modules\Property\Models\Property;
+use App\Modules\User\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class User extends Authenticatable
+#[Fillable(['name', 'email', 'phone_number', 'password'])]
+#[Hidden(['password', 'remember_token', 'role'])]
+class User extends \App\Models\User
 {
-    use HasFactory, Notifiable;
-    protected static function newFactory()
+    protected static function newFactory(): Factory
     {
-    return \App\Modules\User\Factories\UserFactory::new();
+        return UserFactory::new();
     }
 
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
-
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    // Relación con las propiedades del usuario
-    public function properties()
+    public function properties(): HasMany
     {
         return $this->hasMany(Property::class);
     }

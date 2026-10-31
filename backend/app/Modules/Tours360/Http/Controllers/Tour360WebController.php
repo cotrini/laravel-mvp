@@ -38,7 +38,7 @@ class Tour360WebController extends Controller
         ]);
 
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
 
         if ($property->tour) {
             return redirect()->route('tours360.edit', $property->tour);
@@ -51,7 +51,7 @@ class Tour360WebController extends Controller
     {
         $validated = $request->validate($this->tourRules(true), $this->tourValidationMessages());
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
         $this->validateSceneImages($validated['scenes']);
 
         if ($property->tour) {
@@ -60,9 +60,10 @@ class Tour360WebController extends Controller
         }
 
         $storedPaths = [];
+        $pendingPaths = [];
 
         try {
-            $scenes = $this->storeSceneImages($validated['scenes'], $property, $storedPaths);
+            $scenes = $this->storeSceneImages($validated['scenes'], $property, $storedPaths, $pendingPaths);
 
             DB::transaction(function () use ($property, $validated, $scenes): void {
                 $tour = Tour::create([
@@ -82,6 +83,8 @@ class Tour360WebController extends Controller
             throw $exception;
         }
 
+        $this->cleanupPendingUploads($pendingPaths);
+
         return redirect()->route('dashboard.index')->with('success', 'El recorrido 360° se agregó al inmueble.');
     }
 
@@ -97,11 +100,11 @@ class Tour360WebController extends Controller
             'image.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
         ]);
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
 
         $image = $validated['image'];
         $extension = $this->sceneImageExtension($image);
-        $path = "Tours360/{$property->id}/".Str::uuid().'.'.$extension;
+        $path = "Tours360/{$property->id}/pending/".Str::uuid().'.'.$extension;
 
         if (! Storage::disk('r2')->put($path, $image->get())) {
             throw new RuntimeException('No fue posible guardar la imagen de la escena 360°.');
@@ -175,7 +178,7 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['scenes', 'property'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
 
         return view('tours360::Tours.form', compact('tour', 'property'));
     }
@@ -184,14 +187,15 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['property', 'scenes'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
 
         $validated = $request->validate($this->tourRules(), $this->tourValidationMessages());
         $this->validateSceneImages($validated['scenes']);
         $storedPaths = [];
+        $pendingPaths = [];
 
         try {
-            $scenes = $this->storeSceneImages($validated['scenes'], $property, $storedPaths);
+            $scenes = $this->storeSceneImages($validated['scenes'], $property, $storedPaths, $pendingPaths);
 
             DB::transaction(function () use ($tour, $validated, $property, $scenes): void {
                 $tour->fill(Arr::only($validated, ['title', 'description', 'location', 'cover_url']));
@@ -218,6 +222,8 @@ class Tour360WebController extends Controller
             throw $exception;
         }
 
+        $this->cleanupPendingUploads($pendingPaths);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Recorrido y escenas actualizados correctamente.',
@@ -232,7 +238,7 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['property', 'scenes'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canEditProperty($property), 403);
         $storedPaths = collect([$tour->cover_url])
             ->concat($tour->scenes->pluck('image_url'))
             ->map(fn (?string $location): ?string => $location !== null ? PublicMediaUrl::r2Path($location) : null)
@@ -310,6 +316,16 @@ class Tour360WebController extends Controller
     }
 
     /**
+     * @param  array<int, string>  $pendingPaths
+     */
+    private function cleanupPendingUploads(array $pendingPaths): void
+    {
+        if ($pendingPaths !== [] && ! Storage::disk('r2')->delete($pendingPaths)) {
+            throw new RuntimeException('El recorrido se guardó, pero no fue posible eliminar las imágenes temporales de Cloudflare R2.');
+        }
+    }
+
+    /**
      * @param  array<int, array{id?: int|null, title: string, caption?: string|null, image_url: string, sort_order?: int|null}>  $scenes
      */
     private function saveScenes(Tour $tour, array $scenes): void
@@ -352,12 +368,14 @@ class Tour360WebController extends Controller
     /**
      * @param  array<int, array<string, mixed>>  $scenes
      * @param  array<int, string>  $storedPaths
+     * @param  array<int, string>  $pendingPaths
      * @return array<int, array<string, mixed>>
      */
     private function storeSceneImages(
         array $scenes,
         Property $property,
         array &$storedPaths,
+        array &$pendingPaths,
     ): array {
         foreach ($scenes as $index => $scene) {
             $imageFile = $scene['image'] ?? null;
@@ -373,6 +391,19 @@ class Tour360WebController extends Controller
                 }
 
                 $scene['image_url'] = Storage::disk('r2')->url($stagedImage);
+
+                if (str_starts_with($stagedImage, "Tours360/{$property->id}/pending/")) {
+                    $extension = pathinfo($stagedImage, PATHINFO_EXTENSION);
+                    $path = "Tours360/{$property->id}/".Str::uuid().'.'.$extension;
+                    $storedPaths[] = $path;
+
+                    if (! Storage::disk('r2')->put($path, Storage::disk('r2')->get($stagedImage))) {
+                        throw new RuntimeException('No fue posible guardar la imagen de la escena 360° en su ubicación definitiva.');
+                    }
+
+                    $pendingPaths[] = $stagedImage;
+                    $scene['image_url'] = Storage::disk('r2')->url($path);
+                }
             } elseif ($imageFile instanceof UploadedFile) {
                 $extension = $this->sceneImageExtension($imageFile);
                 $path = "Tours360/{$property->id}/".Str::uuid().'.'.$extension;

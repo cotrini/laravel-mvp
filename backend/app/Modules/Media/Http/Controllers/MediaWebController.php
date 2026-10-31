@@ -36,6 +36,8 @@ class MediaWebController extends Controller
      */
     public function store(Request $request)
     {
+        abort_if($request->user()->isFilmmaker(), 403);
+
         $type = $request->input('type');
         $fileRules = match ($type) {
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
@@ -55,6 +57,8 @@ class MediaWebController extends Controller
 
         $file = $validated['file'];
         $property = Property::query()->findOrFail($validated['property_id']);
+        abort_unless($request->user()->canEditProperty($property), 403);
+
         $directory = $this->storageDirectory($validated['type'], $property->id);
         $path = $file->store($directory, 'r2');
 
@@ -83,9 +87,10 @@ class MediaWebController extends Controller
     /**
      * Muestra los detalles de un archivo multimedia específico.
      */
-    public function show($id)
+    public function show(Request $request, int $id)
     {
         $media = Media::findOrFail($id);
+        $this->authorizePropertyManagement($request, $media->property);
 
         return view('media::show', compact('media'));
     }
@@ -93,9 +98,10 @@ class MediaWebController extends Controller
     /**
      * Muestra el formulario de edición para un archivo multimedia.
      */
-    public function edit($id)
+    public function edit(Request $request, int $id)
     {
         $media = Media::findOrFail($id);
+        $this->authorizePropertyManagement($request, $media->property);
 
         return view('media::edit', compact('media'));
     }
@@ -103,9 +109,10 @@ class MediaWebController extends Controller
     /**
      * Actualiza la información o metadatos de un archivo multimedia.
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $media = Media::findOrFail($id);
+        $this->authorizePropertyManagement($request, $media->property);
 
         $request->validate([
             'title' => 'nullable|string|max:255',
@@ -125,9 +132,10 @@ class MediaWebController extends Controller
     /**
      * Elimina el archivo multimedia tanto del servidor como de la base de datos.
      */
-    public function destroy($id)
+    public function destroy(Request $request, int $id)
     {
         $media = Media::findOrFail($id);
+        $this->authorizePropertyManagement($request, $media->property);
 
         $path = str_replace('\\', '/', $media->url_or_path);
         $r2Directory = $this->storageDirectory($media->type, $media->property_id);
@@ -158,5 +166,11 @@ class MediaWebController extends Controller
         };
 
         return "{$folder}/{$propertyId}";
+    }
+
+    private function authorizePropertyManagement(Request $request, ?Property $property): void
+    {
+        abort_unless($property !== null, 404);
+        abort_unless($request->user()->canEditProperty($property), 403);
     }
 }

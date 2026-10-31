@@ -66,9 +66,9 @@
                             <label for="price" class="{{ $labelClasses }}">Precio / canon mensual (COP)</label>
                             <div class="relative">
                                 <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center font-semibold text-slate-400">$</span>
-                                <input type="number" name="price" id="price" value="{{ old('price') }}" required min="1000000" max="{{ old('listing_type') === 'alquiler' ? 100000000 : 50000000000 }}" step="1" placeholder="250000000" data-sale-max="50000000000" data-rental-max="100000000" class="{{ $inputClasses }} pl-9">
+                                <input type="number" name="price" id="price" value="{{ old('price') }}" required min="200000" max="{{ old('listing_type') === 'alquiler' ? 150000000 : 1000000000000 }}" step="1" placeholder="250000000" data-sale-max="1000000000000" data-rental-max="150000000" class="{{ $inputClasses }} pl-9">
                             </div>
-                            <p class="mt-1 text-xs text-slate-500">Mínimo $1.000.000. Máximo: $50.000 millones en venta o $100 millones mensuales en alquiler.</p>
+                            <!-- <p class="mt-1 text-xs text-slate-500">Mínimo $1.000.000.</p> -->
                             @error('price')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
                         </div>
 

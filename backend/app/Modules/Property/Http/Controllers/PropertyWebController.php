@@ -36,6 +36,11 @@ class PropertyWebController extends Controller
 
     private const MAX_PROPERTY_IMAGES = 20;
 
+    // Constantes centralizadas para los límites de precios en Colombia
+    private const MIN_PRICE_GENERAL = 200000;
+    private const MAX_RENTAL_PRICE = 150000000;      // 150 millones
+    private const MAX_SALE_PRICE = 1000000000000;    // 1 billón
+
     public function __construct(
         private readonly Mp4DurationValidator $durationValidator,
         private readonly PdfPageCountValidator $pdfPageCountValidator,
@@ -50,8 +55,22 @@ class PropertyWebController extends Controller
             'bedrooms' => ['nullable', 'integer', 'between:0,100'],
             'bathrooms' => ['nullable', 'integer', 'between:0,100'],
             'stratum' => ['nullable', 'integer', 'between:1,6'],
-            'min_price' => ['nullable', 'numeric', 'min:1000000', Rule::when($request->input('listing_type') === 'alquiler', ['max:100000000'], ['max:50000000000']), Rule::when($request->filled('max_price'), ['lte:max_price'])],
-            'max_price' => ['nullable', 'numeric', 'min:1000000', Rule::when($request->input('listing_type') === 'alquiler', ['max:100000000'], ['max:50000000000']), Rule::when($request->filled('min_price'), ['gte:min_price'])],
+            'min_price' => [
+                'nullable', 
+                'numeric', 
+                'min:'.self::MIN_PRICE_GENERAL, 
+                Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
+                Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
+                Rule::when($request->filled('max_price'), ['lte:max_price'])
+            ],
+            'max_price' => [
+                'nullable', 
+                'numeric', 
+                'min:'.self::MIN_PRICE_GENERAL, 
+                Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
+                Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
+                Rule::when($request->filled('min_price'), ['gte:min_price'])
+            ],
         ]);
 
         $destination = trim($filters['destination'] ?? '');
@@ -209,11 +228,13 @@ class PropertyWebController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request): View|RedirectResponse
     {
-        if (! auth()->check()) {
+        if (! $request->user()) {
             return redirect()->route('login');
         }
+
+        abort_if($request->user()->isFilmmaker(), 403);
 
         $departments = Department::query()
             ->with(['cities' => fn ($query) => $query->orderBy('name')])
@@ -226,9 +247,7 @@ class PropertyWebController extends Controller
     public function edit($id)
     {
         $property = Property::findOrFail($id);
-        if (auth()->id() !== $property->user_id) {
-            abort(403, 'Unauthorized action.');
-        }
+        abort_unless(auth()->user()->canEditProperty($property), 403, 'Unauthorized action.');
 
         $departments = Department::query()
             ->with(['cities' => fn ($query) => $query->orderBy('name')])
@@ -251,6 +270,8 @@ class PropertyWebController extends Controller
 
     public function store(Request $request)
     {
+        abort_if($request->user()->isFilmmaker(), 403);
+
         // Validate and store the property
         $validatedData = $request->validate(array_merge([
             'title' => 'required|string|max:255',
@@ -258,8 +279,9 @@ class PropertyWebController extends Controller
             'price' => [
                 'required',
                 'numeric',
-                'min:1000000',
-                Rule::when($request->input('listing_type') === 'alquiler', ['max:100000000'], ['max:50000000000']),
+                'min:'.self::MIN_PRICE_GENERAL,
+                Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
+                Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
             ],
             'property_type' => 'required|string',
             'listing_type' => ['required', 'in:venta,alquiler'],
@@ -270,7 +292,6 @@ class PropertyWebController extends Controller
             'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
             'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
             'blueprint' => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:'.self::MAX_BLUEPRINT_SIZE_KB],
-            // Add other fields as necessary
         ], $this->propertyDetailsRules()), [
             'blueprint.mimes' => 'El archivo debe ser un documento PDF válido.',
             'blueprint.extensions' => 'El archivo debe tener la extensión .pdf.',
@@ -306,7 +327,7 @@ class PropertyWebController extends Controller
     public function storeVideo(Request $request, int $id): RedirectResponse
     {
         $property = Property::findOrFail($id);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canAccessProperty($property), 403);
 
         $validated = $request->validate([
             'video' => ['required', 'file', 'mimes:mp4', 'extensions:mp4', 'max:102400'],
@@ -363,7 +384,7 @@ class PropertyWebController extends Controller
     public function storeBlueprint(Request $request, int $id): RedirectResponse
     {
         $property = Property::query()->findOrFail($id);
-        abort_unless((int) $property->user_id === (int) $request->user()->id, 403);
+        abort_unless($request->user()->canEditProperty($property), 403);
 
         $validated = $request->validate([
             'blueprint' => [
@@ -429,9 +450,7 @@ class PropertyWebController extends Controller
     public function update(Request $request, $id)
     {
         $property = Property::findOrFail($id);
-        if (auth()->id() !== $property->user_id) {
-            abort(403, 'Unauthorized action.');
-        }
+        abort_unless($request->user()->canEditProperty($property), 403, 'Unauthorized action.');
 
         // Validate and update the property
         $validatedData = $request->validate(array_merge([
@@ -440,8 +459,9 @@ class PropertyWebController extends Controller
             'price' => [
                 'required',
                 'numeric',
-                'min:1000000',
-                Rule::when($request->input('listing_type') === 'alquiler', ['max:100000000'], ['max:50000000000']),
+                'min:'.self::MIN_PRICE_GENERAL,
+                Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
+                Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
             ],
             'property_type' => 'required|string',
             'listing_type' => ['required', 'in:venta,alquiler'],
@@ -451,7 +471,6 @@ class PropertyWebController extends Controller
             'tour_id' => 'nullable|exists:tours,id',
             'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
             'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
-            // Add other fields as necessary
         ], $this->propertyDetailsRules()), [
             'images.*.required' => 'Selecciona una fotografía válida.',
             'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
@@ -468,12 +487,10 @@ class PropertyWebController extends Controller
         return redirect()->route('properties.show', $property->id);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, int $id): RedirectResponse
     {
         $property = Property::findOrFail($id);
-        if (auth()->id() !== $property->user_id) {
-            abort(403, 'Unauthorized action.');
-        }
+        abort_unless($request->user()->canEditProperty($property), 403, 'Unauthorized action.');
 
         $mediaItems = $property->media()->get(['type', 'url_or_path']);
         $tour = $property->tour()->with('scenes')->first();
