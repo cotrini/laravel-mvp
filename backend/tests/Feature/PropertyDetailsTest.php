@@ -2,16 +2,44 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Modules\Media\Models\Media;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
+use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 class PropertyDetailsTest extends TestCase
 {
     use LazilyRefreshDatabase;
+
+    public function test_verification_badges_show_the_correct_state_on_home_catalog_and_details(): void
+    {
+        $owner = User::factory()->create();
+        $unverifiedProperty = $this->createProperty($owner, ['title' => 'Propiedad sin verificar']);
+        $verifiedProperty = $this->createProperty($owner, ['title' => 'Propiedad verificada']);
+        $verifiedProperty->is_verified = true;
+        $verifiedProperty->save();
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('No verificada')
+            ->assertSee('Verificado')
+            ->assertSee('bg-blue-50 text-blue-700');
+        $this->get(route('properties.index'))
+            ->assertOk()
+            ->assertSee('No verificada')
+            ->assertSee('Verificado')
+            ->assertSee('bg-slate-100 text-slate-600');
+        $this->get(route('properties.show', $unverifiedProperty))
+            ->assertOk()
+            ->assertSee('No verificada');
+        $this->get(route('properties.show', $verifiedProperty))
+            ->assertOk()
+            ->assertSee('Verificado')
+            ->assertSee('<circle cx="10" cy="10" r="8"></circle>', false);
+    }
 
     public function test_property_details_are_saved_when_a_property_is_created(): void
     {
@@ -111,6 +139,40 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('110,00 m²');
     }
 
+    public function test_property_contact_uses_the_owner_phone_and_gallery_has_single_image_controls(): void
+    {
+        $owner = User::factory()->create(['phone_number' => '+573001234567']);
+        $property = $this->createProperty($owner, ['title' => 'Casa con contacto directo']);
+        Media::query()->create([
+            'property_id' => $property->id,
+            'mediable_type' => Property::class,
+            'mediable_id' => $property->id,
+            'type' => 'image',
+            'url_or_path' => 'https://example.com/fachada.jpg',
+            'title' => 'Fachada',
+            'is_primary' => true,
+        ]);
+        Media::query()->create([
+            'property_id' => $property->id,
+            'mediable_type' => Property::class,
+            'mediable_id' => $property->id,
+            'type' => 'image',
+            'url_or_path' => 'https://example.com/sala.jpg',
+            'title' => 'Sala',
+        ]);
+
+        $response = $this->get(route('properties.show', $property));
+
+        $response->assertOk()
+            ->assertSee('data-phone="573001234567"', false)
+            ->assertSee('data-phone="573113611426"', false)
+            ->assertSee('data-gallery-previous', false)
+            ->assertSee('data-gallery-next', false)
+            ->assertSee('data-gallery-counter', false)
+            ->assertSee('https://example.com/fachada.jpg')
+            ->assertSee('https://example.com/sala.jpg');
+    }
+
     public function test_rental_operation_is_saved_shown_and_can_filter_the_catalog(): void
     {
         $owner = User::factory()->create();
@@ -148,6 +210,53 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('Casa disponible para alquiler')
             ->assertSee('property-operation--rental')
             ->assertDontSee('Apartamento disponible para venta');
+    }
+
+    public function test_sale_operation_is_available_in_the_public_filters(): void
+    {
+        $owner = User::factory()->create();
+        $saleProperty = $this->createProperty($owner, [
+            'title' => 'Apartamento disponible para venta',
+            'listing_type' => 'venta',
+        ]);
+        $this->createProperty($owner, [
+            'title' => 'Casa disponible para alquiler',
+            'listing_type' => 'alquiler',
+        ]);
+
+        $catalogResponse = $this->get(route('properties.index', ['listing_type' => 'venta']));
+        $homeResponse = $this->get(route('home', ['listing_type' => 'venta']));
+
+        $catalogResponse->assertOk()
+            ->assertSee('value="venta" selected', false)
+            ->assertSee('Apartamento disponible para venta')
+            ->assertDontSee('Casa disponible para alquiler');
+        $homeResponse->assertOk()
+            ->assertSee('value="venta" selected', false)
+            ->assertSee('value="alquiler"', false)
+            ->assertSee('Apartamento disponible para venta')
+            ->assertDontSee('Casa disponible para alquiler');
+
+        $this->assertModelExists($saleProperty);
+    }
+
+    public function test_sale_price_filter_supports_the_configured_sale_limit(): void
+    {
+        $owner = User::factory()->create();
+        $property = $this->createProperty($owner, [
+            'title' => 'Casa de alto valor en venta',
+            'price' => 500000000000,
+            'listing_type' => 'venta',
+        ]);
+
+        $this->get(route('properties.index', [
+            'listing_type' => 'venta',
+            'min_price' => 400000000000,
+            'max_price' => 600000000000,
+        ]))
+            ->assertOk()
+            ->assertSee('max="1000000000000"', false)
+            ->assertSee($property->title);
     }
 
     public function test_listing_operation_is_required_and_must_be_valid(): void
@@ -391,8 +500,7 @@ class PropertyDetailsTest extends TestCase
     {
         $this->locationIds();
 
-        return Property::query()->create(array_merge([
-            'user_id' => $owner->id,
+        return $owner->properties()->create(array_merge([
             'title' => 'Apartamento de prueba',
             'description' => 'Propiedad con detalles completos.',
             'price' => 250000000,

@@ -7,7 +7,7 @@ use Illuminate\Support\Str;
 
 class PublicMediaUrl
 {
-    private const R2_PREFIXES = ['Pictures/', 'PlansPdf/', 'Tours360/', 'Videos/'];
+    private const R2_PREFIXES = ['Avaluos/', 'Pictures/', 'PlansPdf/', 'Tours360/', 'Videos/'];
 
     public static function from(string $location): string
     {

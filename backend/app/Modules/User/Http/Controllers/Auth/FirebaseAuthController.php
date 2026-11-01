@@ -3,56 +3,58 @@
 namespace App\Modules\User\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Modules\User\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Kreait\Firebase\Factory;
 use Illuminate\Support\Str;
+use Kreait\Firebase\Contract\Auth as FirebaseAuthContract;
 
 class FirebaseAuthController extends Controller
 {
-    public function authenticate(Request $request)
+    public function authenticate(Request $request, FirebaseAuthContract $auth): JsonResponse
     {
         $idToken = $request->input('idToken');
 
         try {
-            // Inicializar Firebase Admin SDK con el archivo JSON descargado
-            $firebase = (new Factory)
-                ->withServiceAccount(storage_path('app/firebase-credentials.json'));
-            
-            $auth = $firebase->createAuth();
-            
-            // Verificar el token recibido del frontend
             $verifiedIdToken = $auth->verifyIdToken($idToken);
             $uid = $verifiedIdToken->claims()->get('sub');
-            
-            // Obtener información del usuario autenticado en Firebase
+
             $firebaseUser = $auth->getUser($uid);
             $email = $firebaseUser->email;
             $name = $firebaseUser->displayName ?? 'Usuario';
 
-            // Buscar o crear el usuario en MySQL
-            $user = User::updateOrCreate(
-                ['email' => $email],
-                [
-                    'name' => $name,
-                    'firebase_uid' => $uid,
-                    'password' => bcrypt(Str::random(16)) // Contraseña aleatoria ya que usan login social
-                ]
-            );
+            $user = User::query()->firstOrNew(['email' => $email]);
+            $user->name = $name;
 
-            // Iniciar sesión en Laravel
+            if (! $user->exists) {
+                $user->password = Str::random(32);
+            }
+
+            $user->email_verification_required = false;
+            $user->email_verified_at = now();
+            $user->save();
+
             Auth::login($user);
+            $request->session()->regenerate();
+
+            if (blank($user->phone_number)) {
+                $request->session()->put('phone_completion_required', true);
+            } else {
+                $request->session()->forget('phone_completion_required');
+            }
 
             return response()->json([
                 'status' => 'success',
-                'redirect' => route('dashboard.index') // O la ruta a donde quieras enviarlos
+                'redirect' => blank($user->phone_number)
+                    ? route('profile.phone.show')
+                    : route('dashboard.index'),
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Autenticación fallida: ' . $e->getMessage()
+                'message' => 'Autenticación fallida: '.$exception->getMessage(),
             ], 401);
         }
     }

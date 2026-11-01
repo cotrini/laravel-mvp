@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\Route;
 use Intervention\Image\Exceptions\MissingDependencyException;
 use Tests\TestCase;

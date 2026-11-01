@@ -142,9 +142,19 @@
 
                             <div class="property-details">
                                 <p class="property-type">{{ $property->property_type }}</p>
-                                <span class="property-operation {{ $property->listing_type === 'alquiler' ? 'property-operation--rental' : ($property->listing_type === 'venta' ? 'property-operation--sale' : '') }}">
-                                    {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
-                                </span>
+                                <div class="property-card-badges">
+                                    <span class="property-operation {{ $property->listing_type === 'alquiler' ? 'property-operation--rental' : ($property->listing_type === 'venta' ? 'property-operation--sale' : '') }}">
+                                        {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold {{ $property->is_verified ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'bg-slate-100 text-slate-600' }}" aria-label="{{ $property->is_verified ? 'Propiedad verificada' : 'Propiedad no verificada' }}">
+                                        @if($property->is_verified)
+                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <circle cx="10" cy="10" r="8"></circle><path d="m6 10 2.5 2.5L14 7"></path>
+                                            </svg>
+                                        @endif
+                                        {{ $property->is_verified ? 'Verificado' : 'No verificada' }}
+                                    </span>
+                                </div>
                                 <h3 class="property-title">{{ $property->title }}</h3>
                                 <p class="property-location">
                                     {{ $property->neighborhood ? $property->neighborhood . ', ' : '' }}{{ $property->city }}, {{ $property->department }}
@@ -192,14 +202,19 @@
                         <p class="advisory-eyebrow">Asesoría financiera</p>
                         <h3>Haz realidad tu próximo hogar</h3>
                         <p>Conoce opciones de financiación y recibe orientación para solicitar un préstamo bancario para tu inmueble.</p>
-                        <a
-                            class="advisory-button"
-                            href="https://wa.me/573113611426?text={{ rawurlencode('Hola, quiero recibir asesoría sobre opciones de financiación para comprar un inmueble.') }}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <span aria-hidden="true">→</span> Pedir asesoría
-                        </a>
+                        <div class="advisory-actions">
+                            <a
+                                class="advisory-button"
+                                href="https://wa.me/573113611426?text={{ rawurlencode('Hola, quiero recibir asesoría sobre opciones de financiación para comprar un inmueble.') }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <span aria-hidden="true">→</span> Pedir asesoría
+                            </a>
+                            <a class="advisory-button" href="{{ route('credit-simulator.show') }}">
+                                <span aria-hidden="true">→</span> Simulador de crédito
+                            </a>
+                        </div>
                     </div>
                     <div class="advisory-photo advisory-photo--finance" role="img" aria-label="Asesoría para financiar la compra de un inmueble"></div>
                 </article>

@@ -3,22 +3,21 @@
 namespace App\Modules\Property\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Mail\PropertyMediaRequest as PropertyMediaRequestMail;
+use App\Modules\Media\Models\Media;
 use App\Modules\Media\Support\PublicMediaUrl;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
 use App\Modules\Property\Support\Mp4DurationValidator;
 use App\Modules\Property\Support\PdfPageCountValidator;
+use App\Modules\User\Support\ColombianPhoneNumber as ColombianPhoneNumberFormatter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use RuntimeException;
@@ -38,7 +37,9 @@ class PropertyWebController extends Controller
 
     // Constantes centralizadas para los límites de precios en Colombia
     private const MIN_PRICE_GENERAL = 200000;
+
     private const MAX_RENTAL_PRICE = 150000000;      // 150 millones
+
     private const MAX_SALE_PRICE = 1000000000000;    // 1 billón
 
     public function __construct(
@@ -56,20 +57,20 @@ class PropertyWebController extends Controller
             'bathrooms' => ['nullable', 'integer', 'between:0,100'],
             'stratum' => ['nullable', 'integer', 'between:1,6'],
             'min_price' => [
-                'nullable', 
-                'numeric', 
-                'min:'.self::MIN_PRICE_GENERAL, 
+                'nullable',
+                'numeric',
+                'min:'.self::MIN_PRICE_GENERAL,
                 Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
                 Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
-                Rule::when($request->filled('max_price'), ['lte:max_price'])
+                Rule::when($request->filled('max_price'), ['lte:max_price']),
             ],
             'max_price' => [
-                'nullable', 
-                'numeric', 
-                'min:'.self::MIN_PRICE_GENERAL, 
+                'nullable',
+                'numeric',
+                'min:'.self::MIN_PRICE_GENERAL,
                 Rule::when($request->input('listing_type') === 'alquiler', ['max:'.self::MAX_RENTAL_PRICE]),
                 Rule::when($request->input('listing_type') === 'venta', ['max:'.self::MAX_SALE_PRICE]),
-                Rule::when($request->filled('min_price'), ['gte:min_price'])
+                Rule::when($request->filled('min_price'), ['gte:min_price']),
             ],
         ]);
 
@@ -94,6 +95,7 @@ class PropertyWebController extends Controller
         $propertyTypeLabels['local'] = 'Propiedades comerciales';
 
         $propertiesQuery = Property::query()
+            ->active()
             ->with('media')
             ->where('status', 'active');
 
@@ -154,6 +156,9 @@ class PropertyWebController extends Controller
             'listingType' => $listingType,
             'listingTitle' => $listingTitle,
             'catalogFilters' => $filters,
+            'minPriceLimit' => self::MIN_PRICE_GENERAL,
+            'maxRentalPrice' => self::MAX_RENTAL_PRICE,
+            'maxSalePrice' => self::MAX_SALE_PRICE,
         ]);
     }
 
@@ -162,42 +167,33 @@ class PropertyWebController extends Controller
         $property = Property::query()
             ->with(['media', 'tour', 'user'])
             ->findOrFail($id);
+        abort_if(
+            ! $property->is_active && ! auth()->user()?->canAccessProperty($property),
+            404,
+        );
         $otherProperties = Property::query()
+            ->active()
             ->with('media')
             ->where('id', '!=', $property->id)
             ->where('status', 'active')
             ->latest()
             ->take(3)
             ->get();
+        $normalizedOwnerPhone = ColombianPhoneNumberFormatter::normalize($property->user?->phone_number);
+        $ownerPhone = is_string($normalizedOwnerPhone)
+            ? preg_replace('/\D+/', '', $normalizedOwnerPhone)
+            : null;
 
-        return view('properties::show', compact('property', 'otherProperties'));
-    }
-
-    public function requestMedia(Request $request, Property $property): JsonResponse
-    {
-        $validated = $request->validate([
-            'media_type' => ['required', 'in:video,tour_360,blueprint'],
-        ]);
-
-        $mediaLabel = match ($validated['media_type']) {
-            'video' => 'un video y un recorrido virtual 360°',
-            'tour_360' => 'un recorrido virtual 360°',
-            'blueprint' => 'los planos arquitectónicos en PDF',
-        };
-
-        Mail::to($property->user()->firstOrFail()->email)->send(new PropertyMediaRequestMail(
-            $property,
-            $mediaLabel,
-            route('properties.show', $property),
-        ));
-
-        return response()->json([
-            'message' => 'Tu solicitud fue enviada al propietario.',
-        ]);
+        return view('properties::show', compact('property', 'otherProperties', 'ownerPhone'));
     }
 
     public function showBlueprint(Property $property): BinaryFileResponse|StreamedResponse
     {
+        abort_if(
+            ! $property->is_active && ! auth()->user()?->canAccessProperty($property),
+            404,
+        );
+
         $blueprint = $property->media()->where('type', 'blueprint')->firstOrFail();
         $path = $blueprint->url_or_path;
         $r2Directory = "PlansPdf/{$property->id}/";
@@ -234,7 +230,7 @@ class PropertyWebController extends Controller
             return redirect()->route('login');
         }
 
-        abort_if($request->user()->isFilmmaker(), 403);
+        abort_if($request->user()->isFilmmaker() || $request->user()->isAppraiser(), 403);
 
         $departments = Department::query()
             ->with(['cities' => fn ($query) => $query->orderBy('name')])
@@ -270,7 +266,7 @@ class PropertyWebController extends Controller
 
     public function store(Request $request)
     {
-        abort_if($request->user()->isFilmmaker(), 403);
+        abort_if($request->user()->isFilmmaker() || $request->user()->isAppraiser(), 403);
 
         // Validate and store the property
         $validatedData = $request->validate(array_merge([
@@ -288,20 +284,16 @@ class PropertyWebController extends Controller
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'tour_id' => 'nullable|exists:tours,id',
-            'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
-            'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
             'blueprint' => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:'.self::MAX_BLUEPRINT_SIZE_KB],
-        ], $this->propertyDetailsRules()), [
+        ], $this->propertyImageRules(), $this->propertyDetailsRules()), array_merge([
             'blueprint.mimes' => 'El archivo debe ser un documento PDF válido.',
             'blueprint.extensions' => 'El archivo debe tener la extensión .pdf.',
             'blueprint.max' => 'El PDF no puede superar los 10 MB.',
-            'images.*.required' => 'Selecciona una fotografía válida.',
-            'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
-            'images.*.image' => 'El archivo debe ser una imagen válida.',
-            'images.*.mimes' => 'La fotografía debe estar en formato JPEG o PNG.',
-            'images.*.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
-        ]);
+        ], $this->propertyImageValidationMessages()));
 
         $blueprintFile = $validatedData['blueprint'] ?? null;
         unset($validatedData['blueprint'], $validatedData['images']);
@@ -327,7 +319,7 @@ class PropertyWebController extends Controller
     public function storeVideo(Request $request, int $id): RedirectResponse
     {
         $property = Property::findOrFail($id);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
 
         $validated = $request->validate([
             'video' => ['required', 'file', 'mimes:mp4', 'extensions:mp4', 'max:102400'],
@@ -379,6 +371,69 @@ class PropertyWebController extends Controller
         }
 
         return redirect()->route('dashboard.index')->with('success', 'El video se agregó a la propiedad.');
+    }
+
+    public function storeImages(Request $request, Property $property): RedirectResponse
+    {
+        abort_unless($request->user()->canEditProperty($property), 403, 'Unauthorized action.');
+
+        $validated = $request->validate(
+            $this->propertyImageRules(required: true),
+            $this->propertyImageValidationMessages(),
+        );
+        $existingImages = $property->media()->where('type', 'image')->count();
+
+        if ($existingImages + count($validated['images']) > self::MAX_PROPERTY_IMAGES) {
+            return back()
+                ->withErrors([
+                    'images' => 'Cada inmueble puede tener máximo '.self::MAX_PROPERTY_IMAGES.' fotografías. Elimina alguna antes de agregar más.',
+                ])
+                ->withInput();
+        }
+
+        $this->handlePropertyImages($request, $property);
+
+        return back()->with('success', 'Las fotografías se agregaron correctamente.');
+    }
+
+    public function destroyImage(Request $request, Property $property, Media $media): RedirectResponse
+    {
+        abort_unless($request->user()->canEditProperty($property), 403, 'Unauthorized action.');
+        abort_unless(
+            (int) $media->property_id === (int) $property->id && $media->type === 'image',
+            404,
+        );
+
+        $this->deleteStoredMedia($media->url_or_path, $property->id, 'image');
+        $media->delete();
+
+        return back()->with('success', 'La fotografía se eliminó correctamente.');
+    }
+
+    public function toggleVerification(Request $request, Property $property): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $property->is_verified = ! $property->is_verified;
+        $property->save();
+
+        return back()->with(
+            'success',
+            $property->is_verified ? 'La propiedad quedó verificada.' : 'La verificación de la propiedad fue retirada.',
+        );
+    }
+
+    public function toggleActive(Request $request, Property $property): RedirectResponse
+    {
+        abort_unless($request->user()->canTogglePropertyActive($property), 403);
+
+        $property->is_active = ! $property->is_active;
+        $property->save();
+
+        return back()->with(
+            'success',
+            $property->is_active ? 'La propiedad quedó activa.' : 'La propiedad quedó desactivada.',
+        );
     }
 
     public function storeBlueprint(Request $request, int $id): RedirectResponse
@@ -468,21 +523,14 @@ class PropertyWebController extends Controller
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'tour_id' => 'nullable|exists:tours,id',
-            'images' => ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
-            'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
-        ], $this->propertyDetailsRules()), [
-            'images.*.required' => 'Selecciona una fotografía válida.',
-            'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
-            'images.*.image' => 'El archivo debe ser una imagen válida.',
-            'images.*.mimes' => 'La fotografía debe estar en formato JPEG o PNG.',
-            'images.*.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
-        ]);
+        ], $this->propertyDetailsRules()));
 
-        unset($validatedData['images']);
         $validatedData = $this->replaceLocationIdsWithNames($validatedData);
         $property->update($validatedData);
-        $this->handlePropertyImages($request, $property);
 
         return redirect()->route('properties.show', $property->id);
     }
@@ -490,7 +538,7 @@ class PropertyWebController extends Controller
     public function destroy(Request $request, int $id): RedirectResponse
     {
         $property = Property::findOrFail($id);
-        abort_unless($request->user()->canEditProperty($property), 403, 'Unauthorized action.');
+        abort_unless($request->user()->canDeleteProperty($property), 403, 'Unauthorized action.');
 
         $mediaItems = $property->media()->get(['type', 'url_or_path']);
         $tour = $property->tour()->with('scenes')->first();
@@ -559,6 +607,36 @@ class PropertyWebController extends Controller
     }
 
     /**
+     * @return array<string, array<int, string>>
+     */
+    private function propertyImageRules(bool $required = false): array
+    {
+        return [
+            'images' => $required
+                ? ['required', 'array', 'min:1', 'max:'.self::MAX_PROPERTY_IMAGES]
+                : ['nullable', 'array', 'max:'.self::MAX_PROPERTY_IMAGES],
+            'images.*' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.self::MAX_PROPERTY_IMAGE_SIZE_KB],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function propertyImageValidationMessages(): array
+    {
+        return [
+            'images.required' => 'Selecciona al menos una fotografía.',
+            'images.min' => 'Selecciona al menos una fotografía.',
+            'images.max' => 'Cada inmueble puede tener máximo '.self::MAX_PROPERTY_IMAGES.' fotografías.',
+            'images.*.required' => 'Selecciona una fotografía válida.',
+            'images.*.uploaded' => 'No fue posible recibir la fotografía completa. Asegúrate de que no supere los 15 MB e inténtalo de nuevo.',
+            'images.*.image' => 'El archivo debe ser una imagen válida.',
+            'images.*.mimes' => 'La fotografía debe estar en formato JPEG, PNG o WebP.',
+            'images.*.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
+        ];
+    }
+
+    /**
      * @param  array<int, string>  $storedPaths
      */
     private function cleanupR2Uploads(array $storedPaths): void
@@ -580,6 +658,7 @@ class PropertyWebController extends Controller
     {
         $path = str_replace('\\', '/', $path);
         $r2Directory = match ($type) {
+            'appraisal' => "Avaluos/{$propertyId}/",
             'image' => "Pictures/{$propertyId}/",
             'blueprint' => "PlansPdf/{$propertyId}/",
             'video' => "Videos/{$propertyId}/",

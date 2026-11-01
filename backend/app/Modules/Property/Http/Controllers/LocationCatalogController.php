@@ -7,6 +7,7 @@ use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Neighborhood;
 use App\Modules\Property\Models\Property;
+use App\Modules\Property\Services\OpenStreetMapGeocoder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +48,30 @@ class LocationCatalogController extends Controller
     public function neighborhoods(City $city): JsonResponse
     {
         return response()->json($city->neighborhoods()->orderBy('name')->get(['id', 'name']));
+    }
+
+    public function geocode(Request $request, OpenStreetMapGeocoder $geocoder): JsonResponse
+    {
+        $validated = $request->validate([
+            'city' => ['required', 'string', 'max:120'],
+            'department' => ['required', 'string', 'max:120'],
+            'address' => ['nullable', 'string', 'max:255'],
+        ]);
+        $query = implode(', ', array_filter([
+            trim($validated['address'] ?? ''),
+            trim($validated['city']),
+            trim($validated['department']),
+            'Colombia',
+        ]));
+        $coordinates = $geocoder->search($query);
+
+        if ($coordinates === null) {
+            return response()->json([
+                'message' => 'No encontramos esa ubicación. Puedes marcarla directamente en el mapa.',
+            ], 404);
+        }
+
+        return response()->json($coordinates);
     }
 
     public function storeDepartment(Request $request): RedirectResponse

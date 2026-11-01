@@ -36,7 +36,7 @@ class MediaWebController extends Controller
      */
     public function store(Request $request)
     {
-        abort_if($request->user()->isFilmmaker(), 403);
+        abort_unless($request->user()->isAdmin(), 403);
 
         $type = $request->input('type');
         $fileRules = match ($type) {
@@ -57,7 +57,6 @@ class MediaWebController extends Controller
 
         $file = $validated['file'];
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless($request->user()->canEditProperty($property), 403);
 
         $directory = $this->storageDirectory($validated['type'], $property->id);
         $path = $file->store($directory, 'r2');
@@ -159,6 +158,7 @@ class MediaWebController extends Controller
     private function storageDirectory(string $type, int $propertyId): string
     {
         $folder = match ($type) {
+            'appraisal' => 'Avaluos',
             'blueprint' => 'PlansPdf',
             'video' => 'Videos',
             'virtual_tour_360', 'model_3d' => 'Tours360',
@@ -171,6 +171,6 @@ class MediaWebController extends Controller
     private function authorizePropertyManagement(Request $request, ?Property $property): void
     {
         abort_unless($property !== null, 404);
-        abort_unless($request->user()->canEditProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
     }
 }

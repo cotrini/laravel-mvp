@@ -22,6 +22,7 @@ class HomeController extends Controller
         $listingType = $filters['listing_type'] ?? '';
 
         $propertiesQuery = Property::query()
+            ->active()
             ->with('media')
             ->where('status', 'active');
 
@@ -75,6 +76,7 @@ class HomeController extends Controller
 
             foreach ($categories as $category) {
                 $query = Property::query()
+                    ->active()
                     ->with('media')
                     ->where('status', 'active')
                     ->when($category['type'] === 'oficina', function (Builder $query) {

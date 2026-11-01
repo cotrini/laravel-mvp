@@ -2,10 +2,11 @@
 
 namespace App\Modules\Property\Models;
 
-use App\Models\User;
 use App\Modules\Media\Models\Media;
 use App\Modules\Property\Factories\PropertyFactory;
 use App\Modules\Tours360\Models\Tour;
+use App\Modules\User\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,12 @@ class Property extends Model
 {
     use HasFactory;
 
-    protected static function newFactory()
+    protected $attributes = [
+        'is_verified' => false,
+        'is_active' => true,
+    ];
+
+    protected static function newFactory(): PropertyFactory
     {
         return PropertyFactory::new();
     }
@@ -35,6 +41,9 @@ class Property extends Model
         'department',
         'city',
         'neighborhood',
+        'address',
+        'latitude',
+        'longitude',
         'tour_id',
         'bedrooms',
         'bathrooms',
@@ -54,6 +63,10 @@ class Property extends Model
     protected function casts(): array
     {
         return [
+            'is_verified' => 'boolean',
+            'is_active' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
             'bedrooms' => 'integer',
             'bathrooms' => 'integer',
             'half_bathrooms' => 'integer',
@@ -70,9 +83,24 @@ class Property extends Model
         ];
     }
 
+    public function scopeVerified(Builder $query): Builder
+    {
+        return $query->where('is_verified', true);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(Media::class, 'property_id');
+    }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(PropertyRequest::class);
     }
 
     // O si estás usando la relación polimórfica que definiste en la tabla:
@@ -98,6 +126,16 @@ class Property extends Model
             'filmmaker_property',
             'property_id',
             'filmmaker_id',
+        )->withTimestamps();
+    }
+
+    public function assignedAppraisers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            User::class,
+            'appraiser_property',
+            'property_id',
+            'appraiser_id',
         )->withTimestamps();
     }
 }

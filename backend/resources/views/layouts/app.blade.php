@@ -574,6 +574,18 @@
             color: #047857;
         }
 
+        .property-card-badges {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .property-card-badges .property-operation {
+            margin: 0;
+        }
+
         .dashboard-operation-badge {
             display: inline-flex;
             align-items: center;
@@ -954,6 +966,13 @@
             line-height: 1;
         }
 
+        .advisory-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
         .advisory-photo {
             min-height: 100%;
             background-position: center;
@@ -1220,6 +1239,17 @@
         .dashboard-media-actions form,
         .dashboard-property-actions form {
             margin: 0;
+        }
+
+        .dashboard-property-actions .dashboard-appraisal-upload {
+            display: grid;
+            width: min(100%, 230px);
+            gap: 7px;
+        }
+
+        .dashboard-appraisal-upload input {
+            max-width: 100%;
+            font-size: 11px;
         }
 
         .dashboard-action-button {
@@ -1846,7 +1876,7 @@
         }
     </style>
 </head>
-<body>
+<body id="page-top">
     <header class="site-header">
         <div class="header-shell">
             <div class="header-top">
@@ -1947,7 +1977,7 @@
 
     <footer class="site-footer">
         <div class="footer-top">
-            <a href="{{ route('home') }}">Volver arriba ↑</a>
+            <a href="#page-top">Volver arriba ↑</a>
         </div>
         <div class="footer-shell footer-columns">
             <div class="footer-column">

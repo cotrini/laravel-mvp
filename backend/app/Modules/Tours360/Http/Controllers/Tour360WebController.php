@@ -38,7 +38,7 @@ class Tour360WebController extends Controller
         ]);
 
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
 
         if ($property->tour) {
             return redirect()->route('tours360.edit', $property->tour);
@@ -51,7 +51,7 @@ class Tour360WebController extends Controller
     {
         $validated = $request->validate($this->tourRules(true), $this->tourValidationMessages());
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
         $this->validateSceneImages($validated['scenes']);
 
         if ($property->tour) {
@@ -100,7 +100,7 @@ class Tour360WebController extends Controller
             'image.max' => 'La fotografía es muy pesada. El tamaño máximo permitido es de 15 MB.',
         ]);
         $property = Property::query()->findOrFail($validated['property_id']);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
 
         $image = $validated['image'];
         $extension = $this->sceneImageExtension($image);
@@ -178,7 +178,7 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['scenes', 'property'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
 
         return view('tours360::Tours.form', compact('tour', 'property'));
     }
@@ -187,7 +187,7 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['property', 'scenes'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless($request->user()->canAccessProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
 
         $validated = $request->validate($this->tourRules(), $this->tourValidationMessages());
         $this->validateSceneImages($validated['scenes']);
@@ -238,7 +238,7 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::query()->with(['property', 'scenes'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
-        abort_unless($request->user()->canEditProperty($property), 403);
+        abort_unless($request->user()->canManagePropertyMedia($property), 403);
         $storedPaths = collect([$tour->cover_url])
             ->concat($tour->scenes->pluck('image_url'))
             ->map(fn (?string $location): ?string => $location !== null ? PublicMediaUrl::r2Path($location) : null)

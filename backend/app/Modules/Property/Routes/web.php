@@ -1,7 +1,9 @@
 <?php
 
-use App\Modules\Property\Http\Controllers\PropertyWebController;
 use App\Modules\Property\Http\Controllers\LocationCatalogController;
+use App\Modules\Property\Http\Controllers\PropertyAppraisalController;
+use App\Modules\Property\Http\Controllers\PropertyRequestController;
+use App\Modules\Property\Http\Controllers\PropertyWebController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,9 +21,14 @@ use Illuminate\Support\Facades\Route;
 Route::get('/properties', [PropertyWebController::class, 'index'])->name('properties.index');
 Route::get('/properties/{property}/blueprint', [PropertyWebController::class, 'showBlueprint'])
     ->name('properties.blueprint.show');
-Route::post('/properties/{property}/media-request', [PropertyWebController::class, 'requestMedia'])
+Route::get('/properties/{property}/appraisal', [PropertyAppraisalController::class, 'show'])
+    ->name('properties.appraisals.show');
+Route::post('/properties/{property}/media-request', [PropertyRequestController::class, 'storeMediaRequest'])
     ->middleware('throttle:6,1')
     ->name('properties.media-request');
+Route::get('/location-catalog/geocode', [LocationCatalogController::class, 'geocode'])
+    ->middleware('throttle:30,1')
+    ->name('location-catalog.geocode');
 Route::get('/location-catalog/departments/{department}/cities', [LocationCatalogController::class, 'cities'])
     ->name('location-catalog.cities');
 Route::get('/location-catalog/cities/{city}/neighborhoods', [LocationCatalogController::class, 'neighborhoods'])
@@ -31,8 +38,27 @@ Route::get('/location-catalog/cities/{city}/neighborhoods', [LocationCatalogCont
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/properties/create', [PropertyWebController::class, 'create'])->name('properties.create');
     Route::post('/properties', [PropertyWebController::class, 'store'])->name('properties.store');
+    Route::post('/properties/{property}/images', [PropertyWebController::class, 'storeImages'])->name('properties.images.store');
+    Route::delete('/properties/{property}/images/{media}', [PropertyWebController::class, 'destroyImage'])->name('properties.images.destroy');
     Route::post('/properties/{id}/video', [PropertyWebController::class, 'storeVideo'])->name('properties.video.store');
     Route::post('/properties/{id}/blueprint', [PropertyWebController::class, 'storeBlueprint'])->name('properties.blueprint.store');
+    Route::post('/properties/{property}/appraisal-request', [PropertyAppraisalController::class, 'request'])
+        ->middleware('throttle:3,60')
+        ->name('properties.appraisals.request');
+    Route::post('/properties/{property}/appraisal', [PropertyAppraisalController::class, 'upload'])
+        ->name('properties.appraisals.upload');
+    Route::post('/properties/{property}/verification', [PropertyWebController::class, 'toggleVerification'])
+        ->name('properties.verification.toggle');
+    Route::post('/properties/{property}/active', [PropertyWebController::class, 'toggleActive'])
+        ->name('properties.active.toggle');
+    Route::post('/properties/{property}/requests', [PropertyRequestController::class, 'storeOwnerRequest'])
+        ->name('properties.requests.store');
+    Route::get('/admin/property-requests', [PropertyRequestController::class, 'index'])
+        ->middleware('can:manage-users')
+        ->name('admin.property-requests.index');
+    Route::post('/admin/property-requests/{propertyRequest}/complete', [PropertyRequestController::class, 'markCompleted'])
+        ->middleware('can:manage-users')
+        ->name('admin.property-requests.complete');
 
     Route::get('/properties/{id}/edit', [PropertyWebController::class, 'edit'])->name('properties.edit');
     Route::put('/properties/{id}', [PropertyWebController::class, 'update'])->name('properties.update');

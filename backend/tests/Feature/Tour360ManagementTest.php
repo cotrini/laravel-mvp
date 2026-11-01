@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Modules\Property\Models\Property;
 use App\Modules\Tours360\Models\Tour;
+use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -28,7 +28,7 @@ class Tour360ManagementTest extends TestCase
             ->assertSee('solo podrás agregar la siguiente escena cuando la foto se haya cargado correctamente');
     }
 
-    public function test_property_owner_can_create_a_published_tour_with_scenes(): void
+    public function test_assigned_filmmaker_can_create_a_published_tour_with_scenes(): void
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
@@ -62,7 +62,7 @@ class Tour360ManagementTest extends TestCase
         ]);
     }
 
-    public function test_property_owner_can_update_tour_details_and_scenes(): void
+    public function test_assigned_filmmaker_can_update_tour_details_and_scenes(): void
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
@@ -190,7 +190,7 @@ class Tour360ManagementTest extends TestCase
         $this->assertDatabaseCount('tours', 0);
     }
 
-    public function test_property_owner_can_upload_a_tour_scene_image_to_r2(): void
+    public function test_assigned_filmmaker_can_upload_a_tour_scene_image_to_r2(): void
     {
         Storage::fake('r2');
         $owner = User::factory()->create();
@@ -378,7 +378,7 @@ class Tour360ManagementTest extends TestCase
         $this->assertSame([], Storage::disk('r2')->allFiles());
     }
 
-    public function test_property_owner_can_replace_a_tour_scene_image_with_an_r2_upload(): void
+    public function test_assigned_filmmaker_can_replace_a_tour_scene_image_with_an_r2_upload(): void
     {
         Storage::fake('r2');
         $owner = User::factory()->create();
@@ -436,6 +436,9 @@ class Tour360ManagementTest extends TestCase
 
     private function createProperty(User $owner): Property
     {
+        $owner->role = User::ROLE_FILMMAKER;
+        $owner->save();
+
         $property = new Property([
             'title' => 'Apartamento de prueba',
             'description' => 'Inmueble de prueba para recorridos.',
@@ -448,6 +451,7 @@ class Tour360ManagementTest extends TestCase
         ]);
         $property->user()->associate($owner);
         $property->save();
+        $owner->assignedProperties()->attach($property);
 
         return $property;
     }

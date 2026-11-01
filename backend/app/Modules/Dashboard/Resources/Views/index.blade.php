@@ -7,10 +7,10 @@
         <section class="dashboard-heading">
             <div>
                 <p class="dashboard-eyebrow">Panel de control</p>
-                <h1>{{ $user->isAdmin() ? 'Todos los inmuebles' : ($user->isFilmmaker() ? 'Inmuebles asignados' : 'Mis inmuebles') }}</h1>
-                <p>Hola, {{ $user->name }}. {{ $user->isFilmmaker() ? 'Carga videos y recorridos 360° en los inmuebles asignados.' : 'Administra tus publicaciones, medios y recorridos.' }}</p>
+                <h1>{{ $user->isAdmin() ? 'Todos los inmuebles' : ($user->isAppraiser() || $user->isFilmmaker() ? 'Inmuebles asignados' : 'Mis inmuebles') }}</h1>
+                <p>Hola, {{ $user->name }}. {{ $user->isAppraiser() ? 'Sube avalúos comerciales en PDF para los inmuebles asignados.' : ($user->isFilmmaker() ? 'Carga videos y recorridos 360° en los inmuebles asignados.' : 'Administra tus publicaciones, medios y recorridos.') }}</p>
             </div>
-            @unless($user->isFilmmaker())
+            @unless($user->isFilmmaker() || $user->isAppraiser())
                 <a href="{{ route('properties.create') }}" class="dashboard-add-button">
                     <span aria-hidden="true">+</span> Publicar inmueble
                 </a>
@@ -25,10 +25,26 @@
                     Administrar ubicaciones
                 </a>
             @endcan
+            @can('manage-users')
+                <a href="{{ route('admin.property-requests.index') }}" class="dashboard-add-button">
+                    Solicitudes al administrador ({{ $pendingPropertyRequests }})
+                </a>
+                <a href="{{ route('admin.bank-interest-rates.index') }}" class="dashboard-add-button">
+                    Intereses bancos
+                </a>
+            @endcan
         </section>
 
-        @if(session('success'))
-            <div class="dashboard-notice" role="status">{{ session('success') }}</div>
+        @foreach(['success', 'warning'] as $noticeType)
+            @if(session($noticeType))
+                <div class="dashboard-notice" role="{{ $noticeType === 'warning' ? 'alert' : 'status' }}">{{ session($noticeType) }}</div>
+            @endif
+        @endforeach
+
+        @if($errors->any())
+            <div class="dashboard-notice" role="alert">
+                {{ $errors->first() }}
+            </div>
         @endif
 
         <section class="dashboard-stats" aria-label="Resumen de publicaciones">
@@ -49,8 +65,8 @@
         <section class="dashboard-table-card" aria-labelledby="dashboard-properties-title">
             <div class="dashboard-table-heading">
                 <div>
-                    <h2 id="dashboard-properties-title">Tus publicaciones</h2>
-                    <p>Administra los medios y recorridos de cada inmueble.</p>
+                    <h2 id="dashboard-properties-title">{{ $user->isAppraiser() ? 'Avalúos asignados' : 'Tus publicaciones' }}</h2>
+                    <p>{{ $user->isAppraiser() ? 'Sube o reemplaza el PDF del avalúo comercial de cada inmueble.' : 'Administra los medios y recorridos de cada inmueble.' }}</p>
                 </div>
             </div>
 
@@ -73,6 +89,7 @@
                                     $previewImage = $property->media->where('type', 'image')->firstWhere('is_primary', true)
                                         ?? $property->media->firstWhere('type', 'image');
                                     $propertyVideo = $property->media->firstWhere('type', 'video');
+                                    $propertyAppraisal = $property->media->firstWhere('type', 'appraisal');
                                 @endphp
                                 <tr>
                                     <td>
@@ -93,6 +110,9 @@
                                                 <span>{{ ucfirst($property->property_type) }} · {{ $property->city }}</span>
                                                 <span class="dashboard-operation-badge {{ $property->listing_type === 'alquiler' ? 'dashboard-operation-badge--rental' : ($property->listing_type === 'venta' ? 'dashboard-operation-badge--sale' : '') }}">
                                                     {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
+                                                </span>
+                                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold {{ $property->is_verified ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600' }}">
+                                                    {{ $property->is_verified ? '✓ Propiedad verificada' : 'Propiedad no verificada aún' }}
                                                 </span>
                                             </div>
                                         </div>
@@ -115,13 +135,13 @@
                                                     </svg>
                                                     Ver
                                                 </a>
-                                                <a href="{{ route('tours360.edit', $property->tour->id) }}" class="dashboard-action-button dashboard-action-button--edit">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                        <path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15l0 5Z"></path>
-                                                    </svg>
-                                                    Editar
-                                                </a>
-                                                @unless($user->isFilmmaker())
+                                                @if($user->isAdmin() || $user->isFilmmaker())
+                                                    <a href="{{ route('tours360.edit', $property->tour->id) }}" class="dashboard-action-button dashboard-action-button--edit">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15l0 5Z"></path>
+                                                        </svg>
+                                                        Editar
+                                                    </a>
                                                     <form action="{{ route('tours360.destroy', $property->tour->id) }}" method="POST" onsubmit="return confirm('¿Eliminar el recorrido 360° de este inmueble?');">
                                                         @csrf
                                                         @method('DELETE')
@@ -132,15 +152,17 @@
                                                             Eliminar
                                                         </button>
                                                     </form>
-                                                @endunless
+                                                @endif
                                             </div>
-                                        @else
+                                        @elseif($user->isAdmin() || $user->isFilmmaker())
                                             <a href="{{ route('tours360.create', ['property_id' => $property->id]) }}" class="dashboard-action-button dashboard-action-button--video">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <circle cx="12" cy="12" r="9"></circle><path d="M12 8v8m-4-4h8"></path>
                                                 </svg>
                                                 Agregar recorrido 360°
                                             </a>
+                                        @else
+                                            <span class="dashboard-muted">Sin recorrido 360°</span>
                                         @endif
                                     </td>
                                     <td>
@@ -155,31 +177,120 @@
                                             @else
                                                 <span class="dashboard-muted">Sin video</span>
                                             @endif
-                                            <button
-                                                type="button"
-                                                class="dashboard-action-button dashboard-action-button--video"
-                                                data-video-upload-url="{{ route('properties.video.store', $property->id) }}"
-                                                data-property-id="{{ $property->id }}"
-                                                data-property-title="{{ $property->title }}"
-                                            >
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                    <path d="M12 15V3m0 0L7 8m5-5 5 5"></path><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path>
-                                                </svg>
-                                                {{ $propertyVideo ? 'Cambiar video' : 'Agregar video' }}
-                                            </button>
+                                            @if($user->isAdmin() || $user->isFilmmaker())
+                                                <button
+                                                    type="button"
+                                                    class="dashboard-action-button dashboard-action-button--video"
+                                                    data-video-upload-url="{{ route('properties.video.store', $property->id) }}"
+                                                    data-property-id="{{ $property->id }}"
+                                                    data-property-title="{{ $property->title }}"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <path d="M12 15V3m0 0L7 8m5-5 5 5"></path><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path>
+                                                    </svg>
+                                                    {{ $propertyVideo ? 'Cambiar video' : 'Agregar video' }}
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                     <td>
                                         <div class="dashboard-property-actions">
                                             <a href="{{ route('properties.show', $property->id) }}" class="dashboard-action-button dashboard-action-button--view">Ver</a>
+                                            @if($propertyAppraisal && ! $user->isAppraiser())
+                                                <a href="{{ route('properties.appraisals.show', $property) }}" class="dashboard-action-button dashboard-action-button--view">
+                                                    Ver avalúo
+                                                </a>
+                                            @endif
+                                            @if($user->isAppraiser())
+                                                @if($propertyAppraisal)
+                                                    <span class="dashboard-muted">Avalúo comercial disponible</span>
+                                                @endif
+                                                <form class="dashboard-appraisal-upload" action="{{ route('properties.appraisals.upload', $property) }}" method="POST" enctype="multipart/form-data">
+                                                    @csrf
+                                                    <label class="dashboard-muted" for="appraisal_{{ $property->id }}">
+                                                        {{ $propertyAppraisal ? 'Reemplazar avalúo PDF' : 'Subir avalúo PDF' }}
+                                                    </label>
+                                                    <input id="appraisal_{{ $property->id }}" type="file" name="appraisal" accept="application/pdf,.pdf" required>
+                                                    <span class="dashboard-muted">PDF de hasta 20 MB</span>
+                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--video">
+                                                        {{ $propertyAppraisal ? 'Actualizar avalúo' : 'Guardar avalúo' }}
+                                                    </button>
+                                                </form>
+                                            @else
+                                            @if($user->isAdmin())
+                                                <form action="{{ route('properties.verification.toggle', $property) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
+                                                        {{ $property->is_verified ? 'Retirar verificación' : 'Verificar propiedad' }}
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            @if($user->isAdmin() || (! $user->isFilmmaker() && (int) $property->user_id === (int) $user->id))
+                                                <form action="{{ route('properties.active.toggle', $property) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
+                                                        {{ $property->is_active ? 'Desactivar propiedad' : 'Activar propiedad' }}
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            @if(! $user->isAdmin() && ! $user->isFilmmaker() && (int) $property->user_id === (int) $user->id)
+                                                @php
+                                                    $pendingRequestTypes = $property->requests
+                                                        ->where('status', \App\Modules\Property\Models\PropertyRequest::STATUS_PENDING)
+                                                        ->pluck('type');
+                                                    $propertyMediaRequestPending = $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360)
+                                                        || (! $propertyVideo && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO))
+                                                        || (! $property->tour && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_TOUR_360));
+                                                    $missingPropertyMediaLabel = match (true) {
+                                                        ! $propertyVideo && ! $property->tour => 'Solicitar video y recorrido 360°',
+                                                        ! $propertyVideo => 'Solicitar video',
+                                                        default => 'Solicitar recorrido 360°',
+                                                    };
+                                                @endphp
+                                                    @if(! $property->is_verified)
+                                                        @if($pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VERIFICATION))
+                                                            <span class="dashboard-muted">Solicitar verificación: pendiente</span>
+                                                        @else
+                                                            <form action="{{ route('properties.requests.store', $property) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="type" value="verification">
+                                                                <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
+                                                                    Solicitar verificación
+                                                                </button>
+                                                            </form>
+                                                        @endif
+                                                    @endif
+                                                    @if(! $propertyVideo || ! $property->tour)
+                                                        @if($propertyMediaRequestPending)
+                                                            <span class="dashboard-muted">{{ $missingPropertyMediaLabel }}: pendiente</span>
+                                                        @else
+                                                            <form action="{{ route('properties.requests.store', $property) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="type" value="{{ \App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360 }}">
+                                                                <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
+                                                                    {{ $missingPropertyMediaLabel }}
+                                                                </button>
+                                                            </form>
+                                                        @endif
+                                                    @endif
+                                                @endif
+                                            @if((int) $property->user_id === (int) $user->id && ! $propertyAppraisal)
+                                                <form action="{{ route('properties.appraisals.request', $property) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
+                                                        Solicitar avalúo comercial
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            <a href="{{ route('properties.edit', $property->id) }}" class="dashboard-action-button dashboard-action-button--edit">Editar</a>
                                             @unless($user->isFilmmaker())
-                                                <a href="{{ route('properties.edit', $property->id) }}" class="dashboard-action-button dashboard-action-button--edit">Editar</a>
                                                 <form action="{{ route('properties.destroy', $property->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta propiedad?');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="dashboard-action-button dashboard-action-button--delete">Eliminar</button>
                                                 </form>
                                             @endunless
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -194,8 +305,8 @@
             @else
                 <div class="dashboard-empty">
                     <span class="dashboard-empty-icon" aria-hidden="true">⌂</span>
-                    <h3>{{ $user->isFilmmaker() ? 'Aún no tienes inmuebles asignados' : 'Aún no has publicado inmuebles' }}</h3>
-                    @unless($user->isFilmmaker())
+                    <h3>{{ $user->isFilmmaker() || $user->isAppraiser() ? 'Aún no tienes inmuebles asignados' : 'Aún no has publicado inmuebles' }}</h3>
+                    @unless($user->isFilmmaker() || $user->isAppraiser())
                         <p>Publica tu primer inmueble para comenzar a administrarlo desde aquí.</p>
                         <a href="{{ route('properties.create') }}" class="dashboard-add-button">Publicar inmueble</a>
                     @endunless
@@ -204,6 +315,7 @@
         </section>
     </div>
 
+    @if($user->isAdmin() || $user->isFilmmaker())
     <dialog class="video-upload-dialog" id="video-upload-dialog" aria-labelledby="video-dialog-title">
         <form action="" method="POST" enctype="multipart/form-data" id="video-upload-form">
             @csrf
@@ -326,4 +438,5 @@
             @endif
         })();
     </script>
+    @endif
 @endsection

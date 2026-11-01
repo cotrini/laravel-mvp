@@ -38,19 +38,63 @@
                 </div>
             @endif
 
-            <section class="mb-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-media-heading">
+            @php($propertyImages = $property->media->where('type', 'image')->values())
+            <section class="mb-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-images-heading">
                 <div class="mb-5">
-                    <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Fotos y archivos</p>
-                    <h2 id="property-media-heading" class="mt-1 text-xl font-extrabold text-slate-900">Contenido multimedia actual</h2>
+                    <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Fotos del inmueble</p>
+                    <h2 id="property-images-heading" class="mt-1 text-xl font-extrabold text-slate-900">Administrar fotografías</h2>
+                    <p class="mt-2 text-sm text-slate-600">Elimina fotos que ya no quieras o agrega nuevas arrastrándolas al recuadro o seleccionándolas.</p>
                 </div>
 
-                @if($property->media->isNotEmpty())
-                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                        @foreach($property->media as $mediaItem)
+                @if($propertyImages->isNotEmpty())
+                    <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        @foreach($propertyImages as $image)
                             <article class="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                @if($mediaItem->type === 'image')
-                                    <img src="{{ $mediaItem->public_url }}" alt="Foto del inmueble {{ $property->title }}" class="h-32 w-full rounded-xl object-cover">
-                                @elseif($mediaItem->type === 'blueprint')
+                                <img src="{{ $image->public_url }}" alt="Foto del inmueble {{ $property->title }}" class="h-32 w-full rounded-xl object-cover">
+                                <span class="my-3 truncate text-center text-xs font-semibold text-slate-600">{{ $image->title ?: 'Foto del inmueble' }}</span>
+                                <form action="{{ route('properties.images.destroy', [$property, $image]) }}" method="POST" onsubmit="return confirm('¿Deseas eliminar esta fotografía?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50">
+                                        Eliminar foto
+                                    </button>
+                                </form>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="mb-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                        Este inmueble todavía no tiene fotografías.
+                    </p>
+                @endif
+
+                <form action="{{ route('properties.images.store', $property) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    @include('properties::partials.image-uploader', [
+                        'labelClasses' => $labelClasses,
+                        'maxImages' => max(0, 20 - $propertyImages->count()),
+                    ])
+                    <button
+                        type="submit"
+                        @disabled($propertyImages->count() >= 20)
+                        class="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-800 px-5 text-sm font-extrabold text-white transition hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Agregar fotos
+                    </button>
+                </form>
+            </section>
+
+            @php($otherMedia = $property->media->reject(fn ($mediaItem) => $mediaItem->type === 'image')->values())
+            @if($otherMedia->isNotEmpty())
+                <section class="mb-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-media-heading">
+                    <div class="mb-5">
+                        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Archivos</p>
+                        <h2 id="property-media-heading" class="mt-1 text-xl font-extrabold text-slate-900">Otro contenido multimedia</h2>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        @foreach($otherMedia as $mediaItem)
+                            <article class="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                @if($mediaItem->type === 'blueprint')
                                     <a href="{{ route('properties.blueprint.show', $property->id) }}" target="_blank" rel="noopener noreferrer" class="grid h-32 place-items-center rounded-xl bg-teal-50 px-3 text-center text-sm font-bold text-teal-800 transition hover:bg-teal-100">
                                         Ver planos PDF
                                     </a>
@@ -76,12 +120,8 @@
                             </article>
                         @endforeach
                     </div>
-                @else
-                    <p class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-                        Este inmueble todavía no tiene archivos multimedia.
-                    </p>
-                @endif
-            </section>
+                </section>
+            @endif
 
             @php($blueprint = $property->media->firstWhere('type', 'blueprint'))
             <section class="mb-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-blueprint-heading">
@@ -176,6 +216,9 @@
                         'selectedDepartmentId' => $selectedDepartmentId,
                         'selectedCityId' => $selectedCityId,
                         'selectedNeighborhood' => old('neighborhood', $property->neighborhood),
+                        'selectedAddress' => old('address', $property->address),
+                        'selectedLatitude' => old('latitude', $property->latitude),
+                        'selectedLongitude' => old('longitude', $property->longitude),
                         'inputClasses' => $inputClasses,
                         'labelClasses' => $labelClasses,
                     ])
@@ -212,40 +255,6 @@
                     </div>
                 </section>
 
-                <section class="space-y-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:p-6" aria-labelledby="property-upload-heading">
-                    <div>
-                        <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Completa la publicación</p>
-                        <h2 id="property-upload-heading" class="mt-1 text-lg font-extrabold text-slate-900">Agregar fotos y contenido</h2>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        <div>
-                            <label for="images" class="{{ $labelClasses }}">Agregar fotos a la galería</label>
-                            <input type="file" name="images[]" id="images" multiple accept="image/jpeg,image/png" class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
-                            @error('images.*')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label for="map_url" class="{{ $labelClasses }}">Enlace de Google Maps</label>
-                            <input type="text" name="map_url" id="map_url" value="{{ old('map_url', $property->map_url ?? '') }}" placeholder="https://www.google.com/maps/embed?..." class="{{ $inputClasses }}">
-                            @error('map_url')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label for="tour_360_url" class="{{ $labelClasses }}">Enlace del recorrido virtual 360°</label>
-                            <input type="text" name="tour_360_url" id="tour_360_url" value="{{ old('tour_360_url', $property->tour_360_url ?? '') }}" placeholder="URL del recorrido 360°" class="{{ $inputClasses }}">
-                            @error('tour_360_url')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <label for="tour_3d_url" class="{{ $labelClasses }}">Enlace del modelo 3D</label>
-                            <input type="text" name="tour_3d_url" id="tour_3d_url" value="{{ old('tour_3d_url', $property->tour_3d_url ?? '') }}" placeholder="URL del modelo 3D (Matterport, etc.)" class="{{ $inputClasses }}">
-                            @error('tour_3d_url')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                </section>
-
                 <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
                     <a href="{{ route('dashboard.index') }}" class="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-bold text-slate-700 transition hover:border-teal-700 hover:bg-teal-50 hover:text-teal-800">
                         Cancelar
@@ -256,28 +265,30 @@
                 </div>
             </form>
 
-            <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-video-heading">
-                <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Contenido multimedia</p>
-                <h2 id="property-video-heading" class="mt-1 text-xl font-extrabold text-slate-900">Video del inmueble</h2>
-                <p class="mt-2 text-sm text-slate-600">Admite videos MP4 de hasta 100 MB y 1 minuto.</p>
-                @php($video = $property->media->firstWhere('type', 'video'))
-                @if($video)
-                    <a href="{{ $video->public_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800 transition hover:bg-teal-100">
-                        Ver video actual
-                    </a>
-                @endif
-                <form action="{{ route('properties.video.store', $property) }}" method="POST" enctype="multipart/form-data" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                    @csrf
-                    <div class="flex-1">
-                        <label for="video" class="{{ $labelClasses }}">{{ $video ? 'Reemplazar video' : 'Seleccionar video MP4' }}</label>
-                        <input type="file" name="video" id="video" accept="video/mp4,.mp4" required class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
-                        @error('video')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
-                    </div>
-                    <button type="submit" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-800 px-6 text-sm font-extrabold text-white transition hover:bg-teal-900">
-                        {{ $video ? 'Actualizar video' : 'Subir video' }}
-                    </button>
-                </form>
-            </section>
+            @if(auth()->user()->canManagePropertyMedia($property))
+                <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-video-heading">
+                    <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Contenido multimedia</p>
+                    <h2 id="property-video-heading" class="mt-1 text-xl font-extrabold text-slate-900">Video del inmueble</h2>
+                    <p class="mt-2 text-sm text-slate-600">Admite videos MP4 de hasta 100 MB y 1 minuto.</p>
+                    @php($video = $property->media->firstWhere('type', 'video'))
+                    @if($video)
+                        <a href="{{ $video->public_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800 transition hover:bg-teal-100">
+                            Ver video actual
+                        </a>
+                    @endif
+                    <form action="{{ route('properties.video.store', $property) }}" method="POST" enctype="multipart/form-data" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                        @csrf
+                        <div class="flex-1">
+                            <label for="video" class="{{ $labelClasses }}">{{ $video ? 'Reemplazar video' : 'Seleccionar video MP4' }}</label>
+                            <input type="file" name="video" id="video" accept="video/mp4,.mp4" required class="mt-2 block w-full rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:font-bold file:text-teal-800 hover:file:bg-teal-100">
+                            @error('video')<p class="mt-1 text-sm text-rose-700">{{ $message }}</p>@enderror
+                        </div>
+                        <button type="submit" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-800 px-6 text-sm font-extrabold text-white transition hover:bg-teal-900">
+                            {{ $video ? 'Actualizar video' : 'Subir video' }}
+                        </button>
+                    </form>
+                </section>
+            @endif
         </div>
     </main>
     <script>

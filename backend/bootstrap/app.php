@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsurePhoneNumberIsCompleted;
 use App\Http\Middleware\HandlePostTooLarge;
+use App\Http\Middleware\RejectBannedUser;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,8 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_PROTO);
         $middleware->remove(ValidatePostSize::class);
-        $middleware->web(append: [HandlePostTooLarge::class]);
+        $middleware->web(append: [
+            HandlePostTooLarge::class,
+            RejectBannedUser::class,
+            EnsurePhoneNumberIsCompleted::class,
+        ]);
         $middleware->api(append: [HandlePostTooLarge::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -26,10 +33,13 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(function (PostTooLargeException $exception, Request $request) {
-            $message = 'Los archivos adjuntos superan el tamaño permitido para una sola solicitud. Reduce el tamaño de las fotografías (máximo 15 MB cada una) o carga menos archivos e inténtalo de nuevo.';
+            $message = $request->routeIs('properties.appraisals.upload')
+                ? 'El avalúo comercial no puede superar los 20 MB.'
+                : 'Los archivos adjuntos superan el tamaño permitido para una sola solicitud. Reduce el tamaño de las fotografías (máximo 15 MB cada una) o carga menos archivos e inténtalo de nuevo.';
             $errorKey = match (true) {
                 $request->routeIs('tours360.*') => 'scenes',
                 $request->routeIs('properties.store', 'properties.update') => 'images',
+                $request->routeIs('properties.appraisals.upload') => 'appraisal',
                 $request->routeIs('media.store') => 'file',
                 default => 'files',
             };

@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Modules\Media\Models\Media;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
 use App\Modules\Property\Support\Mp4DurationValidator;
 use App\Modules\Tours360\Models\Tour;
+use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -23,26 +23,15 @@ class PropertyMediaStorageTest extends TestCase
         Storage::fake('r2');
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
-        $department = Department::query()->where('name', 'Caldas')->firstOrFail();
-        $city = City::query()->where('name', 'Manizales')->firstOrFail();
         $this->actingAs($owner);
 
-        $response = $this->put(route('properties.update', $property), [
-            'title' => $property->title,
-            'description' => $property->description,
-            'price' => $property->price,
-            'property_type' => $property->property_type,
-            'listing_type' => 'venta',
-            'department_id' => $department->id,
-            'city_id' => $city->id,
-            'neighborhood' => $property->neighborhood,
-            'is_furnished' => '0',
-            'has_elevator' => '0',
-            'images' => [UploadedFile::fake()->image('fachada.jpg')],
-        ]);
+        $response = $this->from(route('properties.edit', $property))
+            ->post(route('properties.images.store', $property), [
+                'images' => [UploadedFile::fake()->image('fachada.jpg')],
+            ]);
 
         $media = $property->media()->where('type', 'image')->firstOrFail();
-        $response->assertRedirect(route('properties.show', $property->id));
+        $response->assertRedirect(route('properties.edit', $property));
         $this->assertModelExists($media);
         $this->assertStringStartsWith("Pictures/{$property->id}/", $media->url_or_path);
         Storage::disk('r2')->assertExists($media->url_or_path);
@@ -67,6 +56,8 @@ class PropertyMediaStorageTest extends TestCase
             'url_or_path' => $path,
             'title' => 'fachada.jpg',
             'is_primary' => true,
+            'mediable_type' => Property::class,
+            'mediable_id' => $property->id,
         ]);
 
         $response = $this->get(route('home'));
@@ -104,6 +95,8 @@ class PropertyMediaStorageTest extends TestCase
             'type' => 'image',
             'url_or_path' => $propertyImagePath,
             'title' => 'fachada.jpg',
+            'mediable_type' => Property::class,
+            'mediable_id' => $property->id,
         ]);
         $this->actingAs($owner);
 
@@ -123,22 +116,10 @@ class PropertyMediaStorageTest extends TestCase
         Storage::fake('r2');
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
-        $department = Department::query()->where('name', 'Caldas')->firstOrFail();
-        $city = City::query()->where('name', 'Manizales')->firstOrFail();
         $this->actingAs($owner);
 
         $response = $this->from(route('properties.show', $property->id))
-            ->put(route('properties.update', $property), [
-                'title' => $property->title,
-                'description' => $property->description,
-                'price' => $property->price,
-                'property_type' => $property->property_type,
-                'listing_type' => 'venta',
-                'department_id' => $department->id,
-                'city_id' => $city->id,
-                'neighborhood' => $property->neighborhood,
-                'is_furnished' => '0',
-                'has_elevator' => '0',
+            ->post(route('properties.images.store', $property), [
                 'images' => [UploadedFile::fake()->image('fachada.jpg')->size(15361)],
             ]);
 
@@ -149,16 +130,20 @@ class PropertyMediaStorageTest extends TestCase
         $this->assertSame([], Storage::disk('r2')->allFiles());
     }
 
-    public function test_owner_can_upload_property_video_to_r2(): void
+    public function test_assigned_filmmaker_can_upload_property_video_to_r2(): void
     {
         Storage::fake('r2');
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
+        $filmmaker = User::factory()->create();
+        $filmmaker->role = User::ROLE_FILMMAKER;
+        $filmmaker->save();
+        $filmmaker->assignedProperties()->attach($property);
         $this->mock(Mp4DurationValidator::class)
             ->shouldReceive('isAtMostOneMinute')
             ->once()
             ->andReturn(true);
-        $this->actingAs($owner);
+        $this->actingAs($filmmaker);
 
         $response = $this->post(route('properties.video.store', $property), [
             'video' => UploadedFile::fake()->create('recorrido.mp4', 100, 'video/mp4'),
@@ -175,7 +160,10 @@ class PropertyMediaStorageTest extends TestCase
         Storage::fake('r2');
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
-        $this->actingAs($owner);
+        $admin = User::factory()->create();
+        $admin->role = User::ROLE_ADMIN;
+        $admin->save();
+        $this->actingAs($admin);
 
         $response = $this->post(route('media.store'), [
             'property_id' => $property->id,
@@ -198,12 +186,12 @@ class PropertyMediaStorageTest extends TestCase
             'name' => 'Manizales',
         ]);
 
-        return Property::query()->create([
-            'user_id' => $owner->id,
+        return $owner->properties()->create([
             'title' => 'Apartamento de prueba',
             'description' => 'Inmueble de prueba para archivos.',
             'price' => 250000000,
             'property_type' => 'apartamento',
+            'listing_type' => 'venta',
             'status' => 'active',
             'department' => $department->name,
             'city' => $city->name,

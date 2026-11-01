@@ -6,10 +6,10 @@
     @php
         $hasAdvancedFilters = collect($catalogFilters)->contains(fn ($value) => $value !== null && $value !== '');
         $preservedFilters = array_filter($catalogFilters, fn ($value) => $value !== null && $value !== '');
-        $filtersForOperation = static function (array $filters, string $operation): array {
+        $filtersForOperation = static function (array $filters, string $operation) use ($maxRentalPrice): array {
             if ($operation === 'alquiler') {
                 foreach (['min_price', 'max_price'] as $field) {
-                    if (isset($filters[$field]) && (float) $filters[$field] > 100000000) {
+                    if (isset($filters[$field]) && (float) $filters[$field] > $maxRentalPrice) {
                         unset($filters[$field]);
                     }
                 }
@@ -73,12 +73,12 @@
 
                 <label class="catalog-search-field" for="catalog-min-price">
                     <span>Precio mínimo (COP)</span>
-                    <input id="catalog-min-price" name="min_price" type="number" min="1000000" max="{{ $listingType === 'alquiler' ? 100000000 : 50000000000 }}" step="1" value="{{ $catalogFilters['min_price'] ?? '' }}" placeholder="Desde">
+                    <input id="catalog-min-price" name="min_price" type="number" min="{{ $minPriceLimit }}" max="{{ $listingType === 'alquiler' ? $maxRentalPrice : $maxSalePrice }}" data-rental-maximum="{{ $maxRentalPrice }}" data-sale-maximum="{{ $maxSalePrice }}" step="1" value="{{ $catalogFilters['min_price'] ?? '' }}" placeholder="Desde">
                 </label>
 
                 <label class="catalog-search-field" for="catalog-max-price">
                     <span>Precio máximo (COP)</span>
-                    <input id="catalog-max-price" name="max_price" type="number" min="1000000" max="{{ $listingType === 'alquiler' ? 100000000 : 50000000000 }}" step="1" value="{{ $catalogFilters['max_price'] ?? '' }}" placeholder="Hasta">
+                    <input id="catalog-max-price" name="max_price" type="number" min="{{ $minPriceLimit }}" max="{{ $listingType === 'alquiler' ? $maxRentalPrice : $maxSalePrice }}" data-rental-maximum="{{ $maxRentalPrice }}" data-sale-maximum="{{ $maxSalePrice }}" step="1" value="{{ $catalogFilters['max_price'] ?? '' }}" placeholder="Hasta">
                 </label>
 
                 <button class="catalog-search-button" type="submit">
@@ -182,9 +182,19 @@
 
                             <div class="property-details">
                                 <p class="property-type">{{ $property->property_type }}</p>
-                                <span class="property-operation {{ $property->listing_type === 'alquiler' ? 'property-operation--rental' : ($property->listing_type === 'venta' ? 'property-operation--sale' : '') }}">
-                                    {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
-                                </span>
+                                <div class="property-card-badges">
+                                    <span class="property-operation {{ $property->listing_type === 'alquiler' ? 'property-operation--rental' : ($property->listing_type === 'venta' ? 'property-operation--sale' : '') }}">
+                                        {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold {{ $property->is_verified ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'bg-slate-100 text-slate-600' }}" aria-label="{{ $property->is_verified ? 'Propiedad verificada' : 'Propiedad no verificada' }}">
+                                        @if($property->is_verified)
+                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                <circle cx="10" cy="10" r="8"></circle><path d="m6 10 2.5 2.5L14 7"></path>
+                                            </svg>
+                                        @endif
+                                        {{ $property->is_verified ? 'Verificado' : 'No verificada' }}
+                                    </span>
+                                </div>
                                 <h3 class="property-title">{{ $property->title }}</h3>
                                 <p class="property-location">
                                     {{ $property->neighborhood ? $property->neighborhood . ', ' : '' }}{{ $property->city }}, {{ $property->department }}
@@ -224,7 +234,9 @@
             const minPrice = document.querySelector('#catalog-min-price');
             const maxPrice = document.querySelector('#catalog-max-price');
             const updatePriceLimits = () => {
-                const maximum = operation.value === 'alquiler' ? '100000000' : '50000000000';
+                const maximum = operation.value === 'alquiler'
+                    ? minPrice.dataset.rentalMaximum
+                    : minPrice.dataset.saleMaximum;
                 minPrice.max = maximum;
                 maxPrice.max = maximum;
                 if (Number(minPrice.value) > Number(maximum)) {

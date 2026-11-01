@@ -4,20 +4,44 @@
 
 @section('content')
     @php
-        $images = $property->media->where('type', 'image');
+        $images = $property->media->where('type', 'image')->values();
         $video = $property->media->firstWhere('type', 'video');
         $tour3d = $property->media->firstWhere('type', 'tour_3d');
         $blueprint = $property->media->firstWhere('type', 'blueprint');
+        $appraisal = $property->media->firstWhere('type', 'appraisal');
         $blueprintUrl = route('properties.blueprint.show', $property);
+        $appraisalUrl = route('properties.appraisals.show', $property);
         $propertyUrl = route('properties.show', $property->id);
         $mediaRequestUrl = route('properties.media-request', $property);
         $mapLocation = implode(', ', array_filter([
+            $property->address,
             $property->neighborhood,
             $property->city,
             $property->department,
             'Colombia',
         ]));
-        $mapEmbedUrl = 'https://www.google.com/maps?q=' . rawurlencode($mapLocation) . '&output=embed';
+        $mapEmbedUrl = null;
+        $mapExternalUrl = 'https://www.openstreetmap.org/search?query=' . rawurlencode($mapLocation);
+        if ($property->latitude !== null && $property->longitude !== null) {
+            $latitude = (float) $property->latitude;
+            $longitude = (float) $property->longitude;
+            $mapEmbedUrl = sprintf(
+                'https://www.openstreetmap.org/export/embed.html?bbox=%.7F,%.7F,%.7F,%.7F&layer=mapnik&marker=%.7F%%2C%.7F',
+                $longitude - 0.01,
+                $latitude - 0.01,
+                $longitude + 0.01,
+                $latitude + 0.01,
+                $latitude,
+                $longitude,
+            );
+            $mapExternalUrl = sprintf(
+                'https://www.openstreetmap.org/?mlat=%.7F&mlon=%.7F#map=16/%.7F/%.7F',
+                $latitude,
+                $longitude,
+                $latitude,
+                $longitude,
+            );
+        }
         $advisorPhone = '573113611426';
         $primaryImage = $images->firstWhere('is_primary', true) ?? $images->first();
         $statusLabel = match (strtolower($property->status ?? 'active')) {
@@ -49,6 +73,7 @@
             ['label' => 'Tipo de operación', 'value' => $listingTypeLabel, 'icon' => 'tag'],
             ['label' => 'Estado', 'value' => $statusLabel, 'icon' => 'status'],
             ['label' => 'Barrio o sector', 'value' => $property->neighborhood ?: 'No especificado', 'icon' => 'pin'],
+            ['label' => 'Dirección', 'value' => $property->address, 'icon' => 'pin'],
             [
                 'label' => 'Ciudad y departamento',
                 'value' => $property->city . ($property->department ? ', ' . $property->department : ''),
@@ -197,6 +222,36 @@
             border-color: #a7f3d0;
             background: #ecfdf5;
             color: #047857;
+        }
+
+        .property-verification-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 10px;
+            padding: 8px 13px;
+            border: 1px solid;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .property-verification-badge--verified {
+            border-color: #93c5fd;
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .property-verification-badge--verified svg {
+            width: 16px;
+            height: 16px;
+            flex: none;
+        }
+
+        .property-verification-badge--unverified {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+            color: #475569;
         }
 
         .property-highlight-strip {
@@ -528,6 +583,63 @@
             height: 19px;
         }
 
+        .property-card-action-button {
+            min-height: 46px;
+            display: inline-flex;
+            width: fit-content;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 17px;
+            border: 0;
+            border-radius: 999px;
+            background: #292929;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 750;
+            text-align: left;
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        .property-card-action-button::before {
+            content: "→";
+            font-size: 19px;
+            line-height: 1;
+        }
+
+        .property-card-action-button svg {
+            display: none;
+        }
+
+        .property-card-action-button:hover {
+            transform: translateY(-1px);
+            background: #444;
+        }
+
+        .property-card-action-button:focus-visible {
+            outline: 3px solid #ffe77d;
+            outline-offset: 3px;
+        }
+
+        .property-card-action-button:disabled {
+            cursor: wait;
+            opacity: 0.72;
+            transform: none;
+        }
+
+        .property-contact-card .media-request-status {
+            color: #166534 !important;
+        }
+
+        .property-appraisal-viewer {
+            width: 100%;
+            height: min(75vh, 900px);
+            margin-top: 18px;
+            border: 1px solid var(--detail-border);
+            border-radius: 14px;
+            background: #f6f8f8;
+        }
+
         .property-info-card {
             margin-top: 22px;
             padding: clamp(20px, 3vw, 32px);
@@ -735,9 +847,10 @@
         }
 
         .property-media-dialog {
-            width: min(1000px, calc(100% - 28px));
+            width: min(96vw, 1440px);
             max-width: none;
-            max-height: min(90vh, 900px);
+            height: min(94vh, 1000px);
+            max-height: 94vh;
             padding: 0;
             overflow: hidden;
             border: 1px solid rgb(255 255 255 / 15%);
@@ -781,7 +894,8 @@
         }
 
         .property-dialog-content {
-            max-height: calc(90vh - 71px);
+            height: calc(100% - 71px);
+            max-height: calc(94vh - 71px);
             overflow: auto;
             padding: 20px;
             text-align: center;
@@ -792,22 +906,56 @@
         }
 
         .property-dialog-gallery {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
         }
 
         .property-dialog-gallery img {
             width: 100%;
-            height: 320px;
+            height: min(72vh, 760px);
             border-radius: 12px;
             background: #26343c;
             object-fit: contain;
         }
 
+        .property-gallery-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+        }
+
+        .property-gallery-controls button {
+            min-width: 46px;
+            min-height: 42px;
+            border: 1px solid rgb(255 255 255 / 24%);
+            border-radius: 999px;
+            background: rgb(255 255 255 / 12%);
+            color: #fff;
+            cursor: pointer;
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .property-gallery-controls button:disabled {
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        .property-gallery-counter {
+            min-width: 70px;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 750;
+        }
+
         .property-dialog-video {
             width: 100%;
-            max-height: calc(90vh - 150px);
+            max-height: calc(94vh - 150px);
             border-radius: 12px;
             background: #000;
         }
@@ -855,6 +1003,33 @@
 
         .property-media-empty form {
             width: min(100%, 340px);
+        }
+
+        .media-request-field {
+            display: block;
+            margin-bottom: 10px;
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .media-request-field input {
+            width: 100%;
+            margin-top: 4px;
+            padding: 9px 10px;
+            border: 1px solid #53616a;
+            border-radius: 8px;
+            background: #fff;
+            color: #242424;
+        }
+
+        .media-request-whatsapp {
+            display: inline-flex;
+            margin-top: 10px;
+        }
+
+        .media-request-whatsapp[hidden] {
+            display: none;
         }
 
         .media-request-status {
@@ -927,12 +1102,16 @@
                 grid-template-columns: minmax(0, 1fr);
             }
 
-            .property-dialog-gallery {
-                grid-template-columns: minmax(0, 1fr);
+            .property-media-dialog {
+                width: 100vw;
+                height: 100dvh;
+                max-height: 100dvh;
+                margin: 0;
+                border-radius: 0;
             }
 
             .property-dialog-gallery img {
-                height: 260px;
+                height: min(70dvh, 720px);
             }
         }
     </style>
@@ -946,6 +1125,14 @@
         <header class="property-detail-heading">
             <div>
                 <h1>{{ $property->title }}</h1>
+                <span class="property-verification-badge {{ $property->is_verified ? 'property-verification-badge--verified' : 'property-verification-badge--unverified' }}" aria-label="{{ $property->is_verified ? 'Propiedad verificada' : 'Propiedad no verificada' }}">
+                    @if($property->is_verified)
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="10" cy="10" r="8"></circle><path d="m6 10 2.5 2.5L14 7"></path>
+                        </svg>
+                    @endif
+                    {{ $property->is_verified ? 'Verificado' : 'No verificada' }}
+                </span>
                 <p class="property-detail-location">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle>
@@ -1002,7 +1189,7 @@
         <section class="property-gallery-layout" aria-label="Fotos y contacto del inmueble">
             <nav class="property-media-rail" aria-label="Contenido multimedia">
                 @foreach($images->take(2) as $image)
-                    <button type="button" class="property-media-tile" data-gallery-open aria-label="Abrir galería de fotos">
+                    <button type="button" class="property-media-tile" data-gallery-open data-gallery-index="{{ $loop->index }}" aria-label="Abrir foto {{ $loop->iteration }} de {{ $images->count() }}">
                         <img src="{{ $image->public_url }}" alt="" loading="lazy">
                     </button>
                 @endforeach
@@ -1014,7 +1201,7 @@
                     </button>
                 @endif
 
-                <button type="button" class="property-media-tile property-media-tile--video" data-dialog-open="video" aria-label="{{ $video ? 'Ver video del inmueble' : 'Solicitar un video al propietario' }}">
+                <button type="button" class="property-media-tile property-media-tile--video" data-dialog-open="video" aria-label="{{ $video ? 'Ver video del inmueble' : 'Ver información del video no disponible' }}">
                     @if($video && $primaryImage)
                         <img src="{{ $primaryImage->public_url }}" alt="" loading="lazy">
                     @endif
@@ -1037,7 +1224,7 @@
                         <span class="property-media-tile-label">Recorrido</span>
                     </button>
                 @else
-                    <button type="button" class="property-media-tile property-media-tile--tour" data-dialog-open="tour" aria-label="Solicitar recorrido virtual 360 grados">
+                    <button type="button" class="property-media-tile property-media-tile--tour" data-dialog-open="tour" aria-label="Ver información del recorrido virtual 360 grados">
                         <span aria-hidden="true">360°</span>
                         <span class="property-media-tile-label">Recorrido</span>
                     </button>
@@ -1047,7 +1234,7 @@
                     <button type="button" class="property-media-tile property-media-tile--tour" data-dialog-open="tour-3d" aria-label="Ver modelo tridimensional">3D</button>
                 @endif
 
-                <button type="button" class="property-media-tile property-media-tile--blueprint" data-dialog-open="blueprint" aria-label="{{ $blueprint ? 'Ver planos arquitectónicos' : 'Solicitar planos arquitectónicos al propietario' }}">
+                <button type="button" class="property-media-tile property-media-tile--blueprint" data-dialog-open="blueprint" aria-label="{{ $blueprint ? 'Ver planos arquitectónicos' : 'Ver información de planos arquitectónicos no disponibles' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M6 3h8l5 5v13H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M14 3v5h5M8 13h8M8 17h8"></path>
                     </svg>
@@ -1057,7 +1244,7 @@
 
             <div class="property-gallery-main">
                 @if($primaryImage)
-                    <button type="button" data-gallery-open aria-label="Ampliar fotos del inmueble">
+                    <button type="button" data-gallery-open data-gallery-index="{{ $primaryImage ? $images->search(fn ($image) => $image->is($primaryImage)) : 0 }}" aria-label="Ampliar fotos del inmueble">
                         <img src="{{ $primaryImage->public_url }}" alt="{{ $property->title }}">
                     </button>
                 @else
@@ -1078,18 +1265,33 @@
                     </div>
                 </div>
 
-                <p>Déjanos tus datos para enviar tu interés por esta propiedad a través de WhatsApp.</p>
-                <form class="property-contact-form" data-whatsapp-form data-phone="{{ $advisorPhone }}" data-message="Hola, estoy interesado(a) en esta propiedad: {{ $property->title }}.">
-                    <input type="hidden" name="property_url" value="{{ $propertyUrl }}">
-                    <input type="text" name="name" placeholder="Nombre y apellido" aria-label="Nombre y apellido" autocomplete="name" required>
-                    <input type="tel" name="phone" placeholder="Teléfono" aria-label="Teléfono" autocomplete="tel" required>
-                    <button type="submit" class="property-whatsapp-button">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M20.52 3.48A11.87 11.87 0 0 0 12.07 0C5.5 0 .15 5.34.15 11.92c0 2.1.55 4.14 1.6 5.94L.05 24l6.3-1.65a11.9 11.9 0 0 0 5.72 1.46h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.48-8.41ZM12.08 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.85 9.85 0 0 1-1.52-5.25c0-5.46 4.45-9.9 9.92-9.9a9.84 9.84 0 0 1 7.01 2.9 9.84 9.84 0 0 1 2.9 7.01c0 5.47-4.45 9.92-9.92 9.92Zm5.44-7.42c-.3-.15-1.77-.87-2.05-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.77-1.66-2.07-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.03-.53-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.06 2.89 1.21 3.09c.15.2 2.1 3.2 5.1 4.49.71.3 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.13-.27-.2-.57-.35Z"></path>
-                        </svg>
-                        Continuar por WhatsApp
-                    </button>
-                </form>
+                @if($ownerPhone)
+                    <p>Déjanos tus datos para enviar tu interés directamente al propietario por WhatsApp.</p>
+                    <form class="property-contact-form" data-whatsapp-form data-phone="{{ $ownerPhone }}" data-message="Hola, estoy interesado(a) en esta propiedad: {{ $property->title }}.">
+                        <input type="hidden" name="property_url" value="{{ $propertyUrl }}">
+                        <input type="text" name="name" placeholder="Nombre y apellido" aria-label="Nombre y apellido" autocomplete="name" required>
+                        <input type="tel" name="phone" placeholder="Teléfono" aria-label="Teléfono" autocomplete="tel" required>
+                        <button type="submit" class="property-whatsapp-button property-card-action-button">
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M20.52 3.48A11.87 11.87 0 0 0 12.07 0C5.5 0 .15 5.34.15 11.92c0 2.1.55 4.14 1.6 5.94L.05 24l6.3-1.65a11.9 11.9 0 0 0 5.72 1.46h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.48-8.41ZM12.08 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.85 9.85 0 0 1-1.52-5.25c0-5.46 4.45-9.9 9.92-9.9a9.84 9.84 0 0 1 7.01 2.9 9.84 9.84 0 0 1 2.9 7.01c0 5.47-4.45 9.92-9.92 9.92Zm5.44-7.42c-.3-.15-1.77-.87-2.05-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.77-1.66-2.07-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.03-.53-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.06 2.89 1.21 3.09c.15.2 2.1 3.2 5.1 4.49.71.3 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.13-.27-.2-.57-.35Z"></path>
+                            </svg>
+                            Continuar por WhatsApp
+                        </button>
+                    </form>
+                @else
+                    <p>El propietario aún no ha registrado un teléfono para recibir mensajes directos.</p>
+                @endif
+
+                @if((! $video || ! $property->tour) && filled($property->user?->email))
+                    <form method="POST" action="{{ $mediaRequestUrl }}" class="mt-5" data-media-request-form>
+                        @csrf
+                        <input type="hidden" name="media_type" value="media_package">
+                        <button class="property-whatsapp-button property-card-action-button" type="submit" data-media-request-button>
+                            Solicitar al propietario adjuntar videos o recorrido 360°
+                        </button>
+                        <p class="media-request-status" role="status" aria-live="polite"></p>
+                    </form>
+                @endif
 
                 <section class="property-advisor-card" aria-labelledby="property-advisor-title">
                     <div class="property-advisor-copy">
@@ -1097,11 +1299,14 @@
                         <h2 id="property-advisor-title">Haz realidad tu próximo hogar</h2>
                         <p>Recibe orientación para conocer opciones de financiación y solicitar un préstamo bancario para este inmueble.</p>
                     </div>
+                    <a class="property-whatsapp-button property-card-action-button" href="{{ route('credit-simulator.show', ['amount' => $property->price, 'property_id' => $property->id]) }}">
+                        Simular crédito para este inmueble
+                    </a>
                     <form class="advisor-form" data-whatsapp-form data-phone="{{ $advisorPhone }}" data-message="Hola, quiero recibir asesoría bancaria para financiar esta propiedad: {{ $property->title }}.">
                         <input type="hidden" name="property_url" value="{{ $propertyUrl }}">
                         <input type="text" name="name" placeholder="Tu nombre" aria-label="Tu nombre" autocomplete="name" required>
                         <input type="tel" name="phone" placeholder="Tu teléfono" aria-label="Tu teléfono" autocomplete="tel" required>
-                        <button type="submit" class="property-whatsapp-button">
+                        <button type="submit" class="property-whatsapp-button property-card-action-button">
                             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M20.52 3.48A11.87 11.87 0 0 0 12.07 0C5.5 0 .15 5.34.15 11.92c0 2.1.55 4.14 1.6 5.94L.05 24l6.3-1.65a11.9 11.9 0 0 0 5.72 1.46h.01c6.57 0 11.92-5.35 11.92-11.92 0-3.18-1.24-6.17-3.48-8.41ZM12.08 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.85 9.85 0 0 1-1.52-5.25c0-5.46 4.45-9.9 9.92-9.9a9.84 9.84 0 0 1 7.01 2.9 9.84 9.84 0 0 1 2.9 7.01c0 5.47-4.45 9.92-9.92 9.92Z"></path>
                             </svg>
@@ -1177,6 +1382,22 @@
             <p class="property-description">{{ $property->description }}</p>
         </section>
 
+        @if($appraisal)
+            <section class="property-info-card" aria-labelledby="property-appraisal-title">
+                <h2 id="property-appraisal-title">Avalúo comercial</h2>
+                <p class="property-description">Consulta el avalúo comercial disponible para este inmueble.</p>
+                <iframe
+                    class="property-appraisal-viewer"
+                    src="{{ $appraisalUrl }}"
+                    title="Avalúo comercial de {{ $property->title }}"
+                    loading="lazy"
+                ></iframe>
+                <a class="property-whatsapp-button" href="{{ $appraisalUrl }}" target="_blank" rel="noopener noreferrer">
+                    Abrir avalúo comercial en otra pestaña
+                </a>
+            </section>
+        @endif
+
         <section class="property-recommendations" aria-labelledby="property-recommendations-title">
             <h2 id="property-recommendations-title">Otras propiedades interesantes</h2>
             @if($otherProperties->isNotEmpty())
@@ -1220,8 +1441,18 @@
         <div class="property-dialog-content" data-dialog-content="gallery" hidden>
             <div class="property-dialog-gallery">
                 @foreach($images as $image)
-                    <img src="{{ $image->public_url }}" alt="{{ $property->title }}" loading="lazy">
+                    <img
+                        src="{{ $image->public_url }}"
+                        alt="{{ $property->title }} — foto {{ $loop->iteration }}"
+                        data-gallery-image
+                        @if(! $loop->first) hidden @endif
+                    >
                 @endforeach
+                <div class="property-gallery-controls" aria-label="Controles de la galería">
+                    <button type="button" data-gallery-previous aria-label="Ver foto anterior">‹</button>
+                    <span class="property-gallery-counter" data-gallery-counter aria-live="polite"></span>
+                    <button type="button" data-gallery-next aria-label="Ver foto siguiente">›</button>
+                </div>
             </div>
         </div>
 
@@ -1237,28 +1468,33 @@
                         <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10 9 5 3-5 3V9Z"></path>
                     </svg>
                     <h3>Video aún no disponible</h3>
-                    <p>Esta propiedad todavía no tiene un video. Puedes solicitarle al propietario que publique uno.</p>
-                    <form method="POST" action="{{ $mediaRequestUrl }}" data-media-request-form>
-                        @csrf
-                        <input type="hidden" name="media_type" value="video">
-                        <button class="property-whatsapp-button" type="submit" data-media-request-button>
-                            Solicitar video y recorrido 360°
-                        </button>
-                        <p class="media-request-status" role="status" aria-live="polite"></p>
-                    </form>
+                    <p>Esta propiedad todavía no tiene un video. Usa el botón de solicitud al propietario en la ficha para avisarle que hay interés en sus contenidos.</p>
                 </div>
             @endif
         </div>
 
         <div class="property-dialog-content" data-dialog-content="map" hidden>
-            <iframe
-                class="property-dialog-map"
-                src="{{ $mapEmbedUrl }}"
-                title="Mapa de {{ $property->city }}{{ $property->department ? ', ' . $property->department : '' }}"
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-                allowfullscreen
-            ></iframe>
+            @if($mapEmbedUrl)
+                <iframe
+                    class="property-dialog-map"
+                    src="{{ $mapEmbedUrl }}"
+                    title="Mapa de {{ $property->city }}{{ $property->department ? ', ' . $property->department : '' }}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                ></iframe>
+                <a class="property-whatsapp-button" href="{{ $mapExternalUrl }}" target="_blank" rel="noopener noreferrer">
+                    Abrir ubicación en OpenStreetMap
+                </a>
+            @else
+                <div class="property-media-empty">
+                    <h3>Ubicación exacta no disponible</h3>
+                    <p>{{ $property->address ?: $mapLocation }}</p>
+                    <a class="property-whatsapp-button" href="{{ $mapExternalUrl }}" target="_blank" rel="noopener noreferrer">
+                        Buscar zona en OpenStreetMap
+                    </a>
+                </div>
+            @endif
         </div>
 
         <div class="property-dialog-content" data-dialog-content="tour" hidden>
@@ -1267,15 +1503,7 @@
             @else
                 <div class="property-media-empty">
                     <h3>Recorrido 360° aún no disponible</h3>
-                    <p>Esta propiedad todavía no tiene un recorrido virtual.</p>
-                    <form method="POST" action="{{ $mediaRequestUrl }}" data-media-request-form>
-                        @csrf
-                        <input type="hidden" name="media_type" value="tour_360">
-                        <button class="property-whatsapp-button" type="submit" data-media-request-button>
-                            Solicitar recorrido 360°
-                        </button>
-                        <p class="media-request-status" role="status" aria-live="polite"></p>
-                    </form>
+                    <p>Esta propiedad todavía no tiene un recorrido virtual. Usa el botón de solicitud al propietario en la ficha para avisarle que hay interés en sus contenidos.</p>
                 </div>
             @endif
         </div>
@@ -1302,15 +1530,7 @@
                         <path d="M6 3h8l5 5v13H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M14 3v5h5M8 13h8M8 17h8"></path>
                     </svg>
                     <h3>Planos arquitectónicos aún no disponibles</h3>
-                    <p>Solicítale al propietario que agregue los planos de este inmueble para conocer mejor su distribución.</p>
-                    <form method="POST" action="{{ $mediaRequestUrl }}" data-media-request-form>
-                        @csrf
-                        <input type="hidden" name="media_type" value="blueprint">
-                        <button class="property-whatsapp-button" type="submit" data-media-request-button>
-                            Solicitar planos al propietario
-                        </button>
-                        <p class="media-request-status" role="status" aria-live="polite"></p>
-                    </form>
+                    <p>Los planos arquitectónicos aún no están disponibles. Usa el botón de solicitud al propietario en la ficha para avisarle que hay interés en este contenido.</p>
                 </div>
             @endif
         </div>
@@ -1319,12 +1539,35 @@
     <script>
         (() => {
             const dialog = document.getElementById('property-media-dialog');
+            const galleryImages = Array.from(dialog.querySelectorAll('[data-gallery-image]'));
+            const galleryCounter = dialog.querySelector('[data-gallery-counter]');
+            const previousGalleryButton = dialog.querySelector('[data-gallery-previous]');
+            const nextGalleryButton = dialog.querySelector('[data-gallery-next]');
+            const galleryContent = dialog.querySelector('[data-dialog-content="gallery"]');
+            let currentGalleryIndex = 0;
+
+            const showGalleryImage = (index) => {
+                if (galleryImages.length === 0) {
+                    return;
+                }
+
+                currentGalleryIndex = (index + galleryImages.length) % galleryImages.length;
+                galleryImages.forEach((image, imageIndex) => {
+                    image.hidden = imageIndex !== currentGalleryIndex;
+                });
+                galleryCounter.textContent = `${currentGalleryIndex + 1} / ${galleryImages.length}`;
+                previousGalleryButton.disabled = galleryImages.length < 2;
+                nextGalleryButton.disabled = galleryImages.length < 2;
+            };
 
             document.querySelectorAll('[data-dialog-open]').forEach((button) => {
                 button.addEventListener('click', () => {
                     document.querySelectorAll('[data-dialog-content]').forEach((content) => {
                         content.hidden = content.dataset.dialogContent !== button.dataset.dialogOpen;
                     });
+                    if (button.dataset.dialogOpen === 'gallery') {
+                        showGalleryImage(0);
+                    }
                     dialog.showModal();
                 });
             });
@@ -1334,8 +1577,23 @@
                     document.querySelectorAll('[data-dialog-content]').forEach((content) => {
                         content.hidden = content.dataset.dialogContent !== 'gallery';
                     });
+                    showGalleryImage(Number(button.dataset.galleryIndex ?? 0));
                     dialog.showModal();
                 });
+            });
+
+            previousGalleryButton.addEventListener('click', () => showGalleryImage(currentGalleryIndex - 1));
+            nextGalleryButton.addEventListener('click', () => showGalleryImage(currentGalleryIndex + 1));
+            dialog.addEventListener('keydown', (event) => {
+                if (galleryContent.hidden) {
+                    return;
+                }
+
+                if (event.key === 'ArrowLeft') {
+                    showGalleryImage(currentGalleryIndex - 1);
+                } else if (event.key === 'ArrowRight') {
+                    showGalleryImage(currentGalleryIndex + 1);
+                }
             });
 
             document.querySelectorAll('[data-dialog-close]').forEach((button) => {
@@ -1380,7 +1638,12 @@
                         }
 
                         button.textContent = 'Solicitud enviada';
-                        status.textContent = 'Avisamos al propietario por correo. Gracias por tu interés.';
+                        status.textContent = result.message ?? 'La solicitud fue enviada al propietario.';
+                        const whatsappLink = form.querySelector('[data-owner-whatsapp]');
+                        if (result.whatsapp_url && whatsappLink) {
+                            whatsappLink.href = result.whatsapp_url;
+                            whatsappLink.hidden = false;
+                        }
                     } catch (error) {
                         button.disabled = false;
                         button.textContent = originalLabel;

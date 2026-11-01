@@ -19,6 +19,10 @@ jobs:
           robocopy . "C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision" /E /XD .git node_modules vendor /XF .env
           IF %ERRORLEVEL% LEQ 7 EXIT 0 ELSE EXIT %ERRORLEVEL%
 
+      - name: Run database migrations
+        working-directory: C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision\backend
+        run: php artisan migrate --force
+
       - name: Clear Cache & Optimize
         working-directory: C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision\backend
         run: |

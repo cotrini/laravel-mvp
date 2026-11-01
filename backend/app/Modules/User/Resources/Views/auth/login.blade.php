@@ -140,13 +140,13 @@
 
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
-    apiKey: "AIzaSyAYHo8zxXMMkK6D8hVXFyWYS-p3hfoNuwI",
-    authDomain: "colombiasincomision.firebaseapp.com",
-    projectId: "colombiasincomision",
-    storageBucket: "colombiasincomision.firebasestorage.app",
-    messagingSenderId: "868617047073",
-    appId: "1:868617047073:web:49c3ad7693047a6924e760",
-    measurementId: "G-Z0Y763G68K"
+        apiKey: "{{ config('services.firebase.api_key') }}",
+        authDomain: "{{ config('services.firebase.auth_domain') }}",
+        projectId: "{{ config('services.firebase.project_id') }}",
+        storageBucket: "{{ config('services.firebase.storage_bucket') }}",
+        messagingSenderId: "{{ config('services.firebase.messaging_sender_id') }}",
+        appId: "{{ config('services.firebase.app_id') }}",
+        measurementId: "{{ config('services.firebase.measurement_id') }}"
     };
 
     const app = initializeApp(firebaseConfig);

@@ -2,12 +2,17 @@
 
 namespace App\Providers;
 
-use App\Models\User;
+use App\Modules\User\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageManagerInterface;
+use Kreait\Firebase\Contract\Auth as FirebaseAuthContract;
+use Kreait\Firebase\Factory;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
             ImageManagerInterface::class,
             fn (): ImageManagerInterface => ImageManager::usingDriver(GdDriver::class),
         );
+        $this->app->singleton(
+            FirebaseAuthContract::class,
+            fn (): FirebaseAuthContract => (new Factory)
+                ->withServiceAccount(storage_path('app/firebase-credentials.json'))
+                ->createAuth(),
+        );
     }
 
     /**
@@ -27,6 +38,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        VerifyEmail::toMailUsing(function (object $notifiable, string $url): MailMessage {
+            return (new MailMessage)
+                ->subject('Confirma tu correo electrónico | Colombia Sin Comisión')
+                ->view([
+                    'html' => 'mail.verify-email',
+                    'text' => 'mail.verify-email-text',
+                ], [
+                    'userName' => $notifiable->name,
+                    'verificationUrl' => $url,
+                    'expirationMinutes' => config('auth.verification.expire', 60),
+                ]);
+        });
+
         Gate::define('manage-users', function (User $user): bool {
             return $user->isAdmin();
         });
@@ -39,11 +63,12 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        $this->loadMigrationsFrom([
-            database_path('migrations'),
-            app_path('Modules/Property/Database/Migrations'),
-            app_path('Modules/Media/Database/Migrations'),
-            app_path('Modules/Tours360/Database/Migrations'),
-        ]);
+        foreach (File::directories(app_path('Modules')) as $modulePath) {
+            $migrationPath = $modulePath.DIRECTORY_SEPARATOR.'Database'.DIRECTORY_SEPARATOR.'Migrations';
+
+            if (File::isDirectory($migrationPath)) {
+                $this->loadMigrationsFrom($migrationPath);
+            }
+        }
     }
 }
