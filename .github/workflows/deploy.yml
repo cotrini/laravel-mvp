@@ -22,11 +22,20 @@ jobs:
           set -e
 
           SITE_DIR=/home/colombiasincomision/htdocs/www.colombiasincomision.com
+
+          # Diagnóstico: con qué usuario corre y qué permisos tiene
+          echo "Usuario: $(whoami)"
+          id
+          ls -ld $SITE_DIR
+
+          # Permitir a git trabajar en una carpeta de otro dueño
+          git config --global --add safe.directory $SITE_DIR
+
           cd $SITE_DIR
 
           # Primera vez: convertir la carpeta del sitio en repositorio git
           if [ ! -d ".git" ]; then
-            git init
+            git init -b deploy
             git remote add origin https://github.com/cotrini/laravel-mvp.git
           fi
 
@@ -34,7 +43,7 @@ jobs:
           git fetch https://${GH_PAT}@github.com/cotrini/laravel-mvp.git deploy
           git reset --hard FETCH_HEAD
 
-          # El proyecto Laravel queda en SITE_DIR/backend (sin carpeta doble)
+          # El proyecto Laravel queda en SITE_DIR/backend
           cd $SITE_DIR/backend
 
           # Primera vez: crear .env si no existe
@@ -49,3 +58,6 @@ jobs:
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
+
+          # Permisos para que el sitio (PHP-FPM) pueda escribir
+          chmod -R ug+rwX storage bootstrap/cache || true
