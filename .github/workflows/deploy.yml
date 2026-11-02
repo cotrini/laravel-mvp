@@ -23,12 +23,6 @@ jobs:
 
           SITE_DIR=/home/colombiasincomision/htdocs/www.colombiasincomision.com
 
-          # Diagnóstico: con qué usuario corre y qué permisos tiene
-          echo "Usuario: $(whoami)"
-          id
-          ls -ld $SITE_DIR
-
-          # Permitir a git trabajar en una carpeta de otro dueño
           git config --global --add safe.directory $SITE_DIR
 
           cd $SITE_DIR
@@ -43,21 +37,27 @@ jobs:
           git fetch https://${GH_PAT}@github.com/cotrini/laravel-mvp.git deploy
           git reset --hard FETCH_HEAD
 
-          # El proyecto Laravel queda en SITE_DIR/backend
           cd $SITE_DIR/backend
 
-          # Primera vez: crear .env si no existe
+          # 1. Dependencias primero (artisan las necesita)
+          composer install --no-dev --optimize-autoloader --no-interaction
+
+          # 2. Crear .env si no existe
           if [ ! -f .env ]; then
             cp .env.example .env
-            php artisan key:generate --force
             echo "AVISO: se creó .env desde .env.example. Configura DB y APP_URL en el VPS."
           fi
 
-          composer install --no-dev --optimize-autoloader --no-interaction
+          # 3. Generar APP_KEY si está vacía
+          if ! grep -q '^APP_KEY=.\+' .env; then
+            php artisan key:generate --force
+          fi
+
+          # 4. Laravel
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
 
-          # Permisos para que el sitio (PHP-FPM) pueda escribir
+          # Permisos para que PHP-FPM pueda escribir
           chmod -R ug+rwX storage bootstrap/cache || true
