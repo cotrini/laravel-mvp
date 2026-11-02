@@ -45,6 +45,10 @@ return [
         'measurement_id' => env('FIREBASE_MEASUREMENT_ID'),
     ],
 
+    'carto' => [
+        'api_key' => env('CARTO_API_KEY'),
+    ],
+
     'admin_notifications' => [
         'address' => env('ADMIN_NOTIFICATION_EMAIL'),
     ],

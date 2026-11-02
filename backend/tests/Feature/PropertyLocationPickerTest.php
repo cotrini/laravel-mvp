@@ -36,8 +36,9 @@ class PropertyLocationPickerTest extends TestCase
             ->assertSee('property-location-map')
             ->assertSee('Buscar dirección')
             ->assertSee('OpenStreetMap')
-            ->assertSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
-            ->assertDontSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', false)
+            ->assertSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', false)
+            ->assertSee("subdomains: 'abcd'", false)
+            ->assertDontSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
             ->assertSee('Marca un punto en el mapa para guardar el inmueble.')
             ->assertSee('data-geocode-url="/location-catalog/geocode"', false);
 
@@ -46,8 +47,9 @@ class PropertyLocationPickerTest extends TestCase
             ->assertSee('value="Carrera 23 # 60-10"', false)
             ->assertSee('data-selected-latitude="5.0601234"', false)
             ->assertSee('data-selected-longitude="-75.5012345"', false)
-            ->assertSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
-            ->assertDontSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', false)
+            ->assertSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', false)
+            ->assertSee("subdomains: 'abcd'", false)
+            ->assertDontSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
             ->assertSee('Marca un punto en el mapa para guardar el inmueble.')
             ->assertSee('data-geocode-url="/location-catalog/geocode"', false);
     }

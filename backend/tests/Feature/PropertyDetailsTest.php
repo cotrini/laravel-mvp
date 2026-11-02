@@ -192,11 +192,14 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('Garajes')
             ->assertSee('Área construida')
             ->assertSee('110,00 m²')
+            ->assertSee('id="property-detail-map"', false)
+            ->assertSee('data-map-latitude="5.0601234"', false)
+            ->assertSee('data-map-longitude="-75.5012345"', false)
+            ->assertSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', false)
             ->assertSee('Ver en Google Street View')
             ->assertSee('https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=5.0601234,-75.5012345', false)
             ->assertSee('target="_blank" rel="noopener noreferrer"', false)
-            ->assertDontSee('Abrir ubicación en OpenStreetMap')
-            ->assertDontSee('Buscar zona en OpenStreetMap');
+            ->assertDontSee('openstreetmap.org/export/embed.html');
     }
 
     public function test_property_contact_uses_the_owner_phone_and_gallery_has_single_image_controls(): void
@@ -233,6 +236,7 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('data-gallery-next', false)
             ->assertSee('data-gallery-counter', false)
             ->assertDontSee('Ver en Google Street View')
+            ->assertDontSee('id="property-detail-map"', false)
             ->assertSee('https://example.com/fachada.jpg')
             ->assertSee('https://example.com/sala.jpg');
     }

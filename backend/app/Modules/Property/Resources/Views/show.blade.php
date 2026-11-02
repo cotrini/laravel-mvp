@@ -20,24 +20,16 @@
             $property->department,
             'Colombia',
         ]));
-        $mapEmbedUrl = null;
+        $mapLatitude = null;
+        $mapLongitude = null;
         $streetViewUrl = null;
         if ($property->latitude !== null && $property->longitude !== null) {
-            $latitude = (float) $property->latitude;
-            $longitude = (float) $property->longitude;
-            $mapEmbedUrl = sprintf(
-                'https://www.openstreetmap.org/export/embed.html?bbox=%.7F,%.7F,%.7F,%.7F&layer=mapnik&marker=%.7F%%2C%.7F',
-                $longitude - 0.01,
-                $latitude - 0.01,
-                $longitude + 0.01,
-                $latitude + 0.01,
-                $latitude,
-                $longitude,
-            );
+            $mapLatitude = (float) $property->latitude;
+            $mapLongitude = (float) $property->longitude;
             $streetViewUrl = sprintf(
                 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%.7F,%.7F',
-                $latitude,
-                $longitude,
+                $mapLatitude,
+                $mapLongitude,
             );
         }
         $advisorPhone = '573113611426';
@@ -999,6 +991,12 @@
             background: #fff;
         }
 
+        .property-map-status {
+            margin: 8px 0 0;
+            color: #c4cbd0;
+            font-size: 13px;
+        }
+
         .property-media-empty {
             min-height: 300px;
             display: flex;
@@ -1501,15 +1499,18 @@
         </div>
 
         <div class="property-dialog-content" data-dialog-content="map" hidden>
-            @if($mapEmbedUrl)
-                <iframe
+            @if($mapLatitude !== null && $mapLongitude !== null)
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+                <div
+                    id="property-detail-map"
                     class="property-dialog-map"
-                    src="{{ $mapEmbedUrl }}"
-                    title="Mapa de {{ $property->city }}{{ $property->department ? ', ' . $property->department : '' }}"
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"
-                    allowfullscreen
-                ></iframe>
+                    data-map-latitude="{{ $mapLatitude }}"
+                    data-map-longitude="{{ $mapLongitude }}"
+                    role="application"
+                    aria-label="Mapa de {{ $property->city }}{{ $property->department ? ', ' . $property->department : '' }}"
+                ></div>
+                <p class="property-map-status" data-property-map-status role="status" aria-live="polite"></p>
                 <a class="property-whatsapp-button property-street-view-button" href="{{ $streetViewUrl }}" target="_blank" rel="noopener noreferrer">
                     Ver en Google Street View
                 </a>
@@ -1568,7 +1569,31 @@
             const previousGalleryButton = dialog.querySelector('[data-gallery-previous]');
             const nextGalleryButton = dialog.querySelector('[data-gallery-next]');
             const galleryContent = dialog.querySelector('[data-dialog-content="gallery"]');
+            const propertyMapElement = dialog.querySelector('#property-detail-map');
+            const propertyMapStatus = dialog.querySelector('[data-property-map-status]');
             let currentGalleryIndex = 0;
+            let propertyMap = null;
+
+            const initializePropertyMap = () => {
+                if (!propertyMapElement || propertyMap) {
+                    return;
+                }
+
+                if (!window.L) {
+                    propertyMapStatus.textContent = 'No se pudo cargar el mapa. Verifica tu conexión y vuelve a intentarlo.';
+                    return;
+                }
+
+                const latitude = Number(propertyMapElement.dataset.mapLatitude);
+                const longitude = Number(propertyMapElement.dataset.mapLongitude);
+                propertyMap = window.L.map(propertyMapElement).setView([latitude, longitude], 16);
+                window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 19,
+                    subdomains: 'abcd',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                }).addTo(propertyMap);
+                window.L.marker([latitude, longitude]).addTo(propertyMap);
+            };
 
             const showGalleryImage = (index) => {
                 if (galleryImages.length === 0) {
@@ -1593,6 +1618,12 @@
                         showGalleryImage(0);
                     }
                     dialog.showModal();
+                    if (button.dataset.dialogOpen === 'map') {
+                        initializePropertyMap();
+                        if (propertyMap) {
+                            requestAnimationFrame(() => propertyMap.invalidateSize());
+                        }
+                    }
                 });
             });
 
