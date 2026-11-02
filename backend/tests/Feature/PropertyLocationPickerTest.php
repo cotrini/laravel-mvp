@@ -17,7 +17,7 @@ class PropertyLocationPickerTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_create_and_edit_forms_render_the_openstreetmap_location_picker(): void
+    public function test_create_and_edit_forms_render_the_location_picker_with_cartodb_tiles(): void
     {
         $department = Department::query()->firstOrCreate(['name' => 'Caldas']);
         City::query()->firstOrCreate(['department_id' => $department->id, 'name' => 'Manizales']);
@@ -36,6 +36,9 @@ class PropertyLocationPickerTest extends TestCase
             ->assertSee('property-location-map')
             ->assertSee('Buscar dirección')
             ->assertSee('OpenStreetMap')
+            ->assertSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', false)
+            ->assertDontSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
+            ->assertSee('Marca un punto en el mapa para guardar el inmueble.')
             ->assertSee('data-geocode-url="/location-catalog/geocode"', false);
 
         $this->get(route('properties.edit', $property))
@@ -43,6 +46,9 @@ class PropertyLocationPickerTest extends TestCase
             ->assertSee('value="Carrera 23 # 60-10"', false)
             ->assertSee('data-selected-latitude="5.0601234"', false)
             ->assertSee('data-selected-longitude="-75.5012345"', false)
+            ->assertSee('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', false)
+            ->assertDontSee('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', false)
+            ->assertSee('Marca un punto en el mapa para guardar el inmueble.')
             ->assertSee('data-geocode-url="/location-catalog/geocode"', false);
     }
 

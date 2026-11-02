@@ -285,14 +285,16 @@ class PropertyWebController extends Controller
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
             'tour_id' => 'nullable|exists:tours,id',
             'blueprint' => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:'.self::MAX_BLUEPRINT_SIZE_KB],
         ], $this->propertyImageRules(), $this->propertyDetailsRules()), array_merge([
             'blueprint.mimes' => 'El archivo debe ser un documento PDF válido.',
             'blueprint.extensions' => 'El archivo debe tener la extensión .pdf.',
             'blueprint.max' => 'El PDF no puede superar los 10 MB.',
+            'latitude.required' => 'Marca un punto en el mapa para indicar la ubicación del inmueble.',
+            'longitude.required' => 'Completa las coordenadas del punto marcado en el mapa.',
         ], $this->propertyImageValidationMessages()));
 
         $blueprintFile = $validatedData['blueprint'] ?? null;
@@ -427,6 +429,14 @@ class PropertyWebController extends Controller
     {
         abort_unless($request->user()->canTogglePropertyActive($property), 403);
 
+        if (! $property->is_active && ($property->latitude === null || $property->longitude === null)) {
+            return redirect()
+                ->route('properties.edit', $property)
+                ->withErrors([
+                    'latitude' => 'Marca un punto en el mapa para indicar la ubicación del inmueble antes de activarlo.',
+                ]);
+        }
+
         $property->is_active = ! $property->is_active;
         $property->save();
 
@@ -524,10 +534,13 @@ class PropertyWebController extends Controller
             'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('department_id', $request->input('department_id'))],
             'neighborhood' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
             'tour_id' => 'nullable|exists:tours,id',
-        ], $this->propertyDetailsRules()));
+        ], $this->propertyDetailsRules()), [
+            'latitude.required' => 'Marca un punto en el mapa para indicar la ubicación del inmueble.',
+            'longitude.required' => 'Completa las coordenadas del punto marcado en el mapa.',
+        ]);
 
         $validatedData = $this->replaceLocationIdsWithNames($validatedData);
         $property->update($validatedData);

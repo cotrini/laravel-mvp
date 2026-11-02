@@ -57,6 +57,8 @@ class PropertyImageManagementTest extends TestCase
             'department_id' => $department->id,
             'city_id' => $city->id,
             'neighborhood' => 'Chipre',
+            'latitude' => '5.0601234',
+            'longitude' => '-75.5012345',
             'is_furnished' => '0',
             'has_elevator' => '0',
             'images' => [

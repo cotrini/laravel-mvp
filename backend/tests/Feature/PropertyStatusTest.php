@@ -73,7 +73,11 @@ class PropertyStatusTest extends TestCase
     public function test_owner_can_deactivate_and_reactivate_a_property_without_deleting_it(): void
     {
         $owner = User::factory()->create();
-        $property = Property::factory()->create(['user_id' => $owner->id]);
+        $property = Property::factory()->create([
+            'user_id' => $owner->id,
+            'latitude' => 5.0601234,
+            'longitude' => -75.5012345,
+        ]);
 
         $this->actingAs($owner)
             ->post(route('properties.active.toggle', $property))
@@ -91,6 +95,28 @@ class PropertyStatusTest extends TestCase
         $this->assertDatabaseHas('properties', [
             'id' => $property->id,
             'is_active' => true,
+        ]);
+    }
+
+    public function test_owner_cannot_reactivate_a_property_without_map_coordinates(): void
+    {
+        $owner = User::factory()->create();
+        $property = Property::factory()->create([
+            'user_id' => $owner->id,
+            'is_active' => false,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $response = $this->actingAs($owner)->post(route('properties.active.toggle', $property));
+
+        $response->assertRedirect(route('properties.edit', $property))
+            ->assertSessionHasErrors([
+                'latitude' => 'Marca un punto en el mapa para indicar la ubicación del inmueble antes de activarlo.',
+            ]);
+        $this->assertDatabaseHas('properties', [
+            'id' => $property->id,
+            'is_active' => false,
         ]);
     }
 

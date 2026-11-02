@@ -21,7 +21,7 @@
             'Colombia',
         ]));
         $mapEmbedUrl = null;
-        $mapExternalUrl = 'https://www.openstreetmap.org/search?query=' . rawurlencode($mapLocation);
+        $streetViewUrl = null;
         if ($property->latitude !== null && $property->longitude !== null) {
             $latitude = (float) $property->latitude;
             $longitude = (float) $property->longitude;
@@ -34,10 +34,8 @@
                 $latitude,
                 $longitude,
             );
-            $mapExternalUrl = sprintf(
-                'https://www.openstreetmap.org/?mlat=%.7F&mlon=%.7F#map=16/%.7F/%.7F',
-                $latitude,
-                $longitude,
+            $streetViewUrl = sprintf(
+                'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%.7F,%.7F',
                 $latitude,
                 $longitude,
             );
@@ -594,6 +592,16 @@
             font-size: 13px;
             font-weight: 800;
             transition: background 160ms ease, transform 160ms ease;
+        }
+
+        .property-street-view-button {
+            border: 1px solid var(--detail-teal);
+            background: transparent;
+            color: var(--detail-teal);
+        }
+
+        .property-whatsapp-button.property-street-view-button:hover {
+            background: #e7f4f1;
         }
 
         .property-whatsapp-button:hover {
@@ -1502,16 +1510,13 @@
                     referrerpolicy="no-referrer-when-downgrade"
                     allowfullscreen
                 ></iframe>
-                <a class="property-whatsapp-button" href="{{ $mapExternalUrl }}" target="_blank" rel="noopener noreferrer">
-                    Abrir ubicación en OpenStreetMap
+                <a class="property-whatsapp-button property-street-view-button" href="{{ $streetViewUrl }}" target="_blank" rel="noopener noreferrer">
+                    Ver en Google Street View
                 </a>
             @else
                 <div class="property-media-empty">
                     <h3>Ubicación exacta no disponible</h3>
                     <p>{{ $property->address ?: $mapLocation }}</p>
-                    <a class="property-whatsapp-button" href="{{ $mapExternalUrl }}" target="_blank" rel="noopener noreferrer">
-                        Buscar zona en OpenStreetMap
-                    </a>
                 </div>
             @endif
         </div>

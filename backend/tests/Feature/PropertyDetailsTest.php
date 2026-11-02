@@ -85,6 +85,24 @@ class PropertyDetailsTest extends TestCase
         ]);
     }
 
+    public function test_property_creation_requires_map_coordinates(): void
+    {
+        $owner = User::factory()->create();
+        $this->actingAs($owner);
+
+        $response = $this->from(route('properties.create'))->post(route('properties.store'), $this->propertyInput([
+            'latitude' => null,
+            'longitude' => null,
+        ]));
+
+        $response->assertRedirect(route('properties.create'))
+            ->assertSessionHasErrors([
+                'latitude' => 'Marca un punto en el mapa para indicar la ubicación del inmueble.',
+                'longitude' => 'Completa las coordenadas del punto marcado en el mapa.',
+            ]);
+        $this->assertDatabaseCount('properties', 0);
+    }
+
     public function test_property_details_can_be_updated(): void
     {
         $owner = User::factory()->create();
@@ -126,6 +144,35 @@ class PropertyDetailsTest extends TestCase
         ]);
     }
 
+    public function test_property_update_requires_map_coordinates(): void
+    {
+        $owner = User::factory()->create();
+        $property = $this->createProperty($owner, [
+            'latitude' => 5.0601234,
+            'longitude' => -75.5012345,
+        ]);
+        $this->actingAs($owner);
+
+        $response = $this->from(route('properties.edit', $property))->put(
+            route('properties.update', $property),
+            $this->propertyInput([
+                'latitude' => null,
+                'longitude' => null,
+            ]),
+        );
+
+        $response->assertRedirect(route('properties.edit', $property))
+            ->assertSessionHasErrors([
+                'latitude' => 'Marca un punto en el mapa para indicar la ubicación del inmueble.',
+                'longitude' => 'Completa las coordenadas del punto marcado en el mapa.',
+            ]);
+        $this->assertDatabaseHas('properties', [
+            'id' => $property->id,
+            'latitude' => 5.0601234,
+            'longitude' => -75.5012345,
+        ]);
+    }
+
     public function test_public_property_details_include_rooms_garages_and_area(): void
     {
         $owner = User::factory()->create();
@@ -134,6 +181,8 @@ class PropertyDetailsTest extends TestCase
             'bathrooms' => 2,
             'parking_spaces' => 1,
             'built_area_m2' => 110,
+            'latitude' => 5.0601234,
+            'longitude' => -75.5012345,
         ]);
 
         $response = $this->get(route('properties.show', $property));
@@ -142,7 +191,12 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('Habitaciones')
             ->assertSee('Garajes')
             ->assertSee('Área construida')
-            ->assertSee('110,00 m²');
+            ->assertSee('110,00 m²')
+            ->assertSee('Ver en Google Street View')
+            ->assertSee('https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=5.0601234,-75.5012345', false)
+            ->assertSee('target="_blank" rel="noopener noreferrer"', false)
+            ->assertDontSee('Abrir ubicación en OpenStreetMap')
+            ->assertDontSee('Buscar zona en OpenStreetMap');
     }
 
     public function test_property_contact_uses_the_owner_phone_and_gallery_has_single_image_controls(): void
@@ -178,6 +232,7 @@ class PropertyDetailsTest extends TestCase
             ->assertSee('data-gallery-previous', false)
             ->assertSee('data-gallery-next', false)
             ->assertSee('data-gallery-counter', false)
+            ->assertDontSee('Ver en Google Street View')
             ->assertSee('https://example.com/fachada.jpg')
             ->assertSee('https://example.com/sala.jpg');
     }
@@ -486,6 +541,8 @@ class PropertyDetailsTest extends TestCase
             'department_id' => $locations['department_id'],
             'city_id' => $locations['city_id'],
             'neighborhood' => 'Chipre',
+            'latitude' => '5.0601234',
+            'longitude' => '-75.5012345',
             'bedrooms' => null,
             'bathrooms' => null,
             'half_bathrooms' => null,

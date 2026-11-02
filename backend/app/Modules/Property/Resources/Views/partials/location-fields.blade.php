@@ -75,8 +75,14 @@
     @error('longitude')<p class="sm:col-span-2 lg:col-span-3 text-sm text-rose-700">{{ $message }}</p>@enderror
     <div class="sm:col-span-2 lg:col-span-3">
         <p class="mb-2 text-sm text-slate-600">Selecciona primero el departamento y la ciudad, luego ubica el pin o busca una dirección.</p>
-        <div id="property-location-map" class="property-location-map" aria-label="Mapa para marcar la ubicación del inmueble"></div>
-        <p class="mt-2 text-sm text-slate-500" data-location-status role="status" aria-live="polite"></p>
+        <div
+            id="property-location-map"
+            class="property-location-map"
+            tabindex="0"
+            aria-label="Mapa para marcar la ubicación del inmueble"
+            aria-describedby="property-location-status"
+        ></div>
+        <p id="property-location-status" class="mt-2 text-sm text-slate-500" data-location-status role="status" aria-live="polite"></p>
     </div>
 </div>
 
@@ -116,15 +122,26 @@
         const longitudeInput = container.querySelector('[data-location-longitude]');
         const mapElement = document.getElementById('property-location-map');
 
+        container.closest('form')?.addEventListener('submit', (event) => {
+            if (latitudeInput.value.trim() && longitudeInput.value.trim()) {
+                return;
+            }
+
+            event.preventDefault();
+            status.textContent = 'Marca un punto en el mapa para guardar el inmueble.';
+            mapElement.focus();
+            mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
         if (!window.L) {
             status.textContent = 'No se pudo cargar el mapa. Verifica tu conexión y vuelve a intentarlo.';
             return;
         }
 
         const map = window.L.map(mapElement).setView([4.5709, -74.2973], 6);
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors',
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         }).addTo(map);
 
         let marker = null;
