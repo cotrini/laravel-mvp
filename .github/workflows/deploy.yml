@@ -26,6 +26,11 @@ jobs:
           fi
           cd backend
           git pull origin deploy
+          
+          # Si tu composer.json está dentro de una subcarpeta (por ejemplo, si tu proyecto está en una carpeta llamada 'laravel' o similar dentro del repo), 
+          # cámbialo aquí. Si está directamente en la raíz de la carpeta backend, déjalo así:
+          cd . 
+          
           composer install --no-dev --optimize-autoloader --no-interaction
           php artisan migrate --force
           php artisan config:cache
