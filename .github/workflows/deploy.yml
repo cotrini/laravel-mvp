@@ -20,8 +20,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           # 1. Entra a la ruta del proyecto en CloudPanel (reemplaza 'tudominio.com' por tu dominio real o ruta de CloudPanel)
-          cd /home/colombiasincomision/htdocs/colombiasincomision.com/backend
-          
+          cd /home/colombiasincomision/htdocs/www.colombiasincomision.com/backend/public
           # 2. Trae los últimos cambios del repositorio
           git pull origin deploy
           
