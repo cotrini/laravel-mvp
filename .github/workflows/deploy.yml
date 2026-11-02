@@ -18,51 +18,33 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         envs: GH_PAT
-        script_stop: true
         script: |
-          set -euo pipefail
+          set -e
 
-          SITE_DIR="/home/colombiasincomision/htdocs/www.colombiasincomision.com"
-          REPO_DIR="$SITE_DIR/backend"
-          REPO_URL="https://${GH_PAT}@github.com/cotrini/laravel-mvp.git"
+          SITE_DIR=/home/colombiasincomision/htdocs/www.colombiasincomision.com
+          cd $SITE_DIR
 
-          cd "$SITE_DIR"
-
-          # Primera vez: clonar (si existe una carpeta sin .git, se respalda en vez de borrarla)
-          if [ ! -d "$REPO_DIR/.git" ]; then
-            if [ -e "$REPO_DIR" ]; then
-              mv "$REPO_DIR" "${REPO_DIR}_old_$(date +%s)"
-            fi
-            git clone -b deploy "$REPO_URL" "$REPO_DIR"
-            git -C "$REPO_DIR" remote set-url origin https://github.com/cotrini/laravel-mvp.git
+          # Primera vez: convertir la carpeta del sitio en repositorio git
+          if [ ! -d ".git" ]; then
+            git init
+            git remote add origin https://github.com/cotrini/laravel-mvp.git
           fi
 
-          # Actualizar código a lo último de la rama deploy
-          cd "$REPO_DIR"
-          git fetch "$REPO_URL" deploy
+          # Traer lo último de la rama deploy
+          git fetch https://${GH_PAT}@github.com/cotrini/laravel-mvp.git deploy
           git reset --hard FETCH_HEAD
 
-          # Detectar dónde está realmente el proyecto Laravel
-          if [ -f "$REPO_DIR/composer.json" ]; then
-            APP_DIR="$REPO_DIR"
-          elif [ -f "$REPO_DIR/backend/composer.json" ]; then
-            APP_DIR="$REPO_DIR/backend"
-          else
-            echo "ERROR: no se encontró composer.json en $REPO_DIR ni en $REPO_DIR/backend"
-            ls -la "$REPO_DIR"
-            exit 1
-          fi
-          echo "Proyecto Laravel en: $APP_DIR"
-          cd "$APP_DIR"
+          # El proyecto Laravel queda en SITE_DIR/backend (sin carpeta doble)
+          cd $SITE_DIR/backend
 
-          # El .env no viene en el repo: debe existir en el servidor
+          # Primera vez: crear .env si no existe
           if [ ! -f .env ]; then
-            echo "ERROR: falta el archivo .env en $APP_DIR. Créalo en el VPS (cp .env.example .env) y configúralo."
-            exit 1
+            cp .env.example .env
+            php artisan key:generate --force
+            echo "AVISO: se creó .env desde .env.example. Configura DB y APP_URL en el VPS."
           fi
 
           composer install --no-dev --optimize-autoloader --no-interaction
-
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
