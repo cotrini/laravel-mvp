@@ -1587,7 +1587,9 @@
                 const latitude = Number(propertyMapElement.dataset.mapLatitude);
                 const longitude = Number(propertyMapElement.dataset.mapLongitude);
                 propertyMap = window.L.map(propertyMapElement).setView([latitude, longitude], 16);
-                window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                const cartoApiKey = "{{ env('CARTO_API_KEY') }}";
+
+                window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' + (cartoApiKey ? '?key=' + cartoApiKey : ''), {
                     maxZoom: 19,
                     subdomains: 'abcd',
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
