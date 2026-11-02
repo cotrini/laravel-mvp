@@ -2038,7 +2038,7 @@
             </div>
             <div class="footer-column">
                 <h2>Podemos ayudarte</h2>
-                <a href="{{ route('login') }}">Centro de ayuda</a>
+                <a href="https://wa.me/573113611426">Centro de ayuda</a>
                 <a href="{{ route('login') }}">Inicia sesión</a>
             </div>
             <div class="footer-column">
