@@ -2,7 +2,7 @@ name: Deploy Laravel to Hostinger VPS
 
 on:
   push:
-    branches: [ deploy ] # Se activará cada vez que hagas push a la rama 'deploy'
+    branches: [ deploy ]
 
 jobs:
   deploy:
@@ -20,16 +20,18 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           cd /home/colombiasincomision/htdocs/www.colombiasincomision.com
+          
+          # Si no existe la carpeta git, clonamos directamente el repositorio dentro de 'backend'
           if [ ! -d "backend/.git" ]; then
             rm -rf backend
             git clone git@github.com:cotrini/laravel-mvp.git backend
+          else
+            cd backend
+            git pull origin deploy
           fi
-          cd backend
-          git pull origin deploy
           
-          # Si tu composer.json está dentro de una subcarpeta (por ejemplo, si tu proyecto está en una carpeta llamada 'laravel' o similar dentro del repo), 
-          # cámbialo aquí. Si está directamente en la raíz de la carpeta backend, déjalo así:
-          cd . 
+          # Nos movemos a la ruta exacta donde está el composer.json (nivel interno correcto)
+          cd /home/colombiasincomision/htdocs/www.colombiasincomision.com/backend
           
           composer install --no-dev --optimize-autoloader --no-interaction
           php artisan migrate --force
