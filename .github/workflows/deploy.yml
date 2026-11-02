@@ -22,10 +22,10 @@ jobs:
           cd /home/colombiasincomision/htdocs/www.colombiasincomision.com
           if [ ! -d "backend/.git" ]; then
             rm -rf backend
-            git clone git@github.com:cotrini/laravel-mvp.git backend
+            GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone git@github.com:cotrini/laravel-mvp.git backend
           fi
           cd backend
-          git pull origin deploy
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git pull origin deploy
           composer install --no-dev --optimize-autoloader --no-interaction
           php artisan migrate --force
           php artisan config:cache
