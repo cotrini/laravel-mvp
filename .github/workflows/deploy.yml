@@ -19,16 +19,20 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
+          # Nos movemos a la carpeta principal del sitio web
           cd /home/colombiasincomision/htdocs/www.colombiasincomision.com
           
+          # Si la carpeta backend no existe como un repositorio git válido, limpiamos y clonamos correctamente
           if [ ! -d "backend/.git" ]; then
             rm -rf backend
-            git clone https://${{ secrets.GH_PAT }}@github.com/cotrini/laravel-mvp.git backend
+            mkdir -p backend
+            git clone git@github.com:cotrini/laravel-mvp.git backend
           else
             cd backend
-            git pull https://${{ secrets.GH_PAT }}@github.com/cotrini/laravel-mvp.git deploy
+            git pull origin deploy
           fi
           
+          # Nos movemos a la ruta exacta donde ahora sí está el composer.json de Laravel
           cd /home/colombiasincomision/htdocs/www.colombiasincomision.com/backend
           
           composer install --no-dev --optimize-autoloader --no-interaction
