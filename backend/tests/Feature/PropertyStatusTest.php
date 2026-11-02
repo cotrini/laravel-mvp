@@ -94,6 +94,36 @@ class PropertyStatusTest extends TestCase
         ]);
     }
 
+    public function test_deactivating_a_property_updates_dashboard_status_and_hides_public_search_results(): void
+    {
+        $owner = User::factory()->create();
+        $property = Property::factory()->create([
+            'user_id' => $owner->id,
+            'title' => 'Casa desactivada desde el panel',
+            'city' => 'Manizales',
+        ]);
+        $this->actingAs($owner);
+
+        $this->post(route('properties.active.toggle', $property))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('properties', [
+            'id' => $property->id,
+            'is_active' => false,
+        ]);
+        $this->get(route('dashboard.index'))
+            ->assertOk()
+            ->assertSee('Inactiva')
+            ->assertSee('Activar propiedad')
+            ->assertDontSee('Desactivar propiedad');
+        $this->get(route('home', ['destination' => 'Manizales']))
+            ->assertOk()
+            ->assertDontSee('Casa desactivada desde el panel');
+        $this->get(route('properties.index', ['destination' => 'Manizales']))
+            ->assertOk()
+            ->assertDontSee('Casa desactivada desde el panel');
+    }
+
     public function test_deactivated_properties_are_excluded_from_public_catalogs_and_details(): void
     {
         $owner = User::factory()->create();

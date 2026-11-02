@@ -19,7 +19,7 @@
         >
     </label>
     <p class="mt-2 text-xs text-slate-500">
-        Puedes añadir fotos en varias selecciones. Máximo 20 fotografías por inmueble.
+        Puedes añadir fotos en varias selecciones. Máximo 10 fotografías por inmueble.
     </p>
     @error('images')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
     @error('images.*')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror

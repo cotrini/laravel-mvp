@@ -175,6 +175,13 @@
             color: var(--detail-teal);
         }
 
+        .property-identification-code {
+            margin: 7px 0 0;
+            color: var(--detail-muted);
+            font-size: 12px;
+            font-weight: 650;
+        }
+
         .property-detail-price {
             flex: none;
             color: var(--detail-teal);
@@ -394,6 +401,22 @@
         .property-media-tile--count strong {
             font-size: 21px;
             font-weight: 850;
+        }
+
+        .property-media-tile--count img {
+            filter: brightness(0.55);
+        }
+
+        .property-media-count {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 1;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 21px;
+            font-weight: 850;
+            text-shadow: 0 1px 5px rgb(0 0 0 / 55%);
         }
 
         .property-media-tile--blueprint {
@@ -1139,6 +1162,7 @@
                     </svg>
                     {{ $property->neighborhood ? $property->neighborhood . ', ' : '' }}{{ $property->city }}{{ $property->department ? ', ' . $property->department : '' }}
                 </p>
+                <p class="property-identification-code">Código del inmueble: {{ $property->identification_code }}</p>
             </div>
             <div class="property-price-block">
                 <span class="property-operation-badge {{ $property->listing_type === 'alquiler' ? 'property-operation-badge--rental' : ($property->listing_type === 'venta' ? 'property-operation-badge--sale' : '') }}">{{ $listingTypeLabel }}</span>
@@ -1188,15 +1212,10 @@
 
         <section class="property-gallery-layout" aria-label="Fotos y contacto del inmueble">
             <nav class="property-media-rail" aria-label="Contenido multimedia">
-                @foreach($images->take(2) as $image)
-                    <button type="button" class="property-media-tile" data-gallery-open data-gallery-index="{{ $loop->index }}" aria-label="Abrir foto {{ $loop->iteration }} de {{ $images->count() }}">
-                        <img src="{{ $image->public_url }}" alt="" loading="lazy">
-                    </button>
-                @endforeach
-
-                @if($images->count() > 2)
-                    <button type="button" class="property-media-tile property-media-tile--count" data-dialog-open="gallery" aria-label="Ver las {{ $images->count() }} fotos">
-                        <strong>+{{ $images->count() - 2 }}</strong>
+                @if($images->isNotEmpty())
+                    <button type="button" class="property-media-tile property-media-tile--count" data-dialog-open="gallery" data-gallery-photo-count="{{ $images->count() }}" aria-label="Ver las {{ $images->count() }} fotos">
+                        <img src="{{ $primaryImage->public_url }}" alt="" loading="lazy">
+                        <strong class="property-media-count">{{ $images->count() }}</strong>
                         <span class="property-media-tile-label">Fotos</span>
                     </button>
                 @endif

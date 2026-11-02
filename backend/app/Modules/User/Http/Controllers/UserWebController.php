@@ -212,6 +212,9 @@ class UserWebController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'assignment_user_id' => ['nullable', 'integer', 'exists:users,id', 'required_with:property_code'],
+            'property_code' => ['nullable', 'string', 'max:32', 'required_with:assignment_user_id'],
         ]);
         $search = trim($validated['search'] ?? '');
 
@@ -228,11 +231,27 @@ class UserWebController extends Controller
             ->orderBy('id')
             ->paginate(15)
             ->withQueryString();
-        $properties = Property::query()
-            ->orderBy('title')
-            ->get(['id', 'title']);
+        $assignmentUserId = isset($validated['assignment_user_id'])
+            ? (int) $validated['assignment_user_id']
+            : null;
+        $assignmentCode = strtoupper(trim($validated['property_code'] ?? ''));
+        $assignmentLookupPerformed = $assignmentUserId !== null && $assignmentCode !== '';
+        $assignmentProperty = null;
 
-        return view('user::admin.index', compact('users', 'properties', 'search'));
+        if ($assignmentLookupPerformed) {
+            $assignmentUser = User::query()->findOrFail($assignmentUserId);
+            abort_unless($assignmentUser->isFilmmaker() || $assignmentUser->isAppraiser(), 404);
+            $assignmentProperty = $this->findPropertyByCode($assignmentCode);
+        }
+
+        return view('user::admin.index', compact(
+            'users',
+            'search',
+            'assignmentUserId',
+            'assignmentCode',
+            'assignmentLookupPerformed',
+            'assignmentProperty',
+        ));
     }
 
     public function adminUpdate(Request $request, User $managedUser): RedirectResponse
@@ -334,27 +353,79 @@ class UserWebController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'La cuenta se creó correctamente.');
     }
 
-    public function assignProperties(Request $request, User $managedUser): RedirectResponse
+    public function assignProperty(Request $request, User $managedUser): RedirectResponse
     {
         abort_unless($managedUser->isFilmmaker() || $managedUser->isAppraiser(), 404);
 
         $validated = $request->validate([
-            'property_ids' => ['nullable', 'array'],
-            'property_ids.*' => ['required', 'integer', 'distinct', 'exists:properties,id'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'property_code' => ['required', 'string', 'max:32', 'regex:/\ACSC-\d{8,}\z/i'],
         ]);
+        $propertyCode = strtoupper(trim($validated['property_code']));
+        $property = $this->findPropertyByCode($propertyCode);
 
-        DB::transaction(function () use ($managedUser, $validated): void {
-            $assignedProperties = $managedUser->isAppraiser()
-                ? $managedUser->assignedAppraisalProperties()
-                : $managedUser->assignedProperties();
-            $assignedProperties->sync($validated['property_ids'] ?? []);
-        });
+        if ($property === null) {
+            return back()
+                ->withErrors(['property_code' => 'No encontramos un inmueble con ese código.'])
+                ->withInput();
+        }
 
-        return redirect()->route('admin.users.index')->with(
+        $assignedProperties = $managedUser->isAppraiser()
+            ? $managedUser->assignedAppraisalProperties()
+            : $managedUser->assignedProperties();
+        $wasAlreadyAssigned = $assignedProperties->whereKey($property->getKey())->exists();
+
+        if (! $wasAlreadyAssigned) {
+            DB::transaction(function () use ($assignedProperties, $property): void {
+                $assignedProperties->syncWithoutDetaching([$property->getKey()]);
+            });
+        }
+
+        return redirect()->route('admin.users.index', array_filter([
+            'search' => $validated['search'] ?? null,
+            'page' => $validated['page'] ?? null,
+            'assignment_user_id' => $managedUser->id,
+            'property_code' => $propertyCode,
+        ], fn ($value) => $value !== null && $value !== ''))->with(
             'success',
-            $managedUser->isAppraiser()
-                ? 'Los inmuebles asignados al avaluador se actualizaron.'
-                : 'Las propiedades asignadas se actualizaron.',
+            $wasAlreadyAssigned
+                ? 'Este inmueble ya estaba asignado a la cuenta.'
+                : 'El inmueble fue asignado correctamente.',
         );
+    }
+
+    public function removeAssignedProperty(
+        User $managedUser,
+        Property $property,
+    ): RedirectResponse {
+        abort_unless($managedUser->isFilmmaker() || $managedUser->isAppraiser(), 404);
+
+        $assignedProperties = $managedUser->isAppraiser()
+            ? $managedUser->assignedAppraisalProperties()
+            : $managedUser->assignedProperties();
+
+        abort_unless($assignedProperties->whereKey($property->getKey())->exists(), 404);
+
+        $assignedProperties->detach($property->getKey());
+
+        return back()->with('success', 'Se retiró el inmueble de las asignaciones de la cuenta.');
+    }
+
+    private function findPropertyByCode(string $propertyCode): ?Property
+    {
+        if (preg_match('/\ACSC-(\d{8,})\z/i', $propertyCode, $matches) !== 1) {
+            return null;
+        }
+
+        $property = Property::query()
+            ->with('user:id,name')
+            ->find((int) $matches[1]);
+
+        if ($property === null || ! hash_equals($property->identification_code, strtoupper($propertyCode))) {
+            return null;
+        }
+
+        return $property;
     }
 }

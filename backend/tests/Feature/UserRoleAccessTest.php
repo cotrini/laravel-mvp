@@ -264,16 +264,170 @@ class UserRoleAccessTest extends TestCase
         $this->assertTrue($filmmaker->hasVerifiedEmail());
         Notification::assertNothingSent();
 
-        $assignmentResponse = $this->put(
-            route('admin.users.properties.update', $filmmaker),
-            ['property_ids' => [$property->id]],
+        $this->get(route('admin.users.index', [
+            'assignment_user_id' => $filmmaker->id,
+            'property_code' => $property->identification_code,
+        ]))
+            ->assertOk()
+            ->assertSee($property->title)
+            ->assertSee('Asignar propiedad');
+
+        $assignmentResponse = $this->post(
+            route('admin.users.properties.store', $filmmaker),
+            ['property_code' => $property->identification_code],
         );
 
-        $assignmentResponse->assertRedirect(route('admin.users.index'));
+        $assignmentResponse->assertRedirect(route('admin.users.index', [
+            'assignment_user_id' => $filmmaker->id,
+            'property_code' => $property->identification_code,
+        ]));
         $this->assertDatabaseHas('filmmaker_property', [
             'filmmaker_id' => $filmmaker->id,
             'property_id' => $property->id,
         ]);
+    }
+
+    public function test_property_code_search_stays_on_the_page_with_its_filmmaker(): void
+    {
+        $admin = $this->createAdmin();
+        $admin->name = '0 Admin';
+        $admin->save();
+        $filmmaker = $this->createFilmmaker();
+        $filmmaker->name = 'Z Filmmaker';
+        $filmmaker->save();
+        User::factory()->count(15)->sequence(
+            ...array_map(
+                fn (int $index): array => ['name' => sprintf('A User %02d', $index)],
+                range(1, 15),
+            ),
+        )->create();
+        $property = Property::factory()->create([
+            'user_id' => User::factory()->create(['name' => '1 Property Owner'])->id,
+            'title' => 'Propiedad en página secundaria',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.index', [
+            'page' => 2,
+            'assignment_user_id' => $filmmaker->id,
+            'property_code' => $property->identification_code,
+        ]));
+
+        $response->assertOk()
+            ->assertSee($property->title)
+            ->assertSee('name="page" value="2"', false);
+    }
+
+    public function test_assigning_one_property_keeps_the_filmmakers_other_assignments(): void
+    {
+        $admin = $this->createAdmin();
+        $filmmaker = $this->createFilmmaker();
+        $owner = User::factory()->create();
+        $existingProperty = Property::factory()->create(['user_id' => $owner->id]);
+        $newProperty = Property::factory()->create(['user_id' => $owner->id]);
+        $filmmaker->assignedProperties()->attach($existingProperty);
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.users.properties.store', $filmmaker),
+            ['property_code' => $newProperty->identification_code],
+        );
+
+        $response->assertRedirect(route('admin.users.index', [
+            'assignment_user_id' => $filmmaker->id,
+            'property_code' => $newProperty->identification_code,
+        ]));
+        $this->assertDatabaseHas('filmmaker_property', [
+            'filmmaker_id' => $filmmaker->id,
+            'property_id' => $existingProperty->id,
+        ]);
+        $this->assertDatabaseHas('filmmaker_property', [
+            'filmmaker_id' => $filmmaker->id,
+            'property_id' => $newProperty->id,
+        ]);
+    }
+
+    public function test_admin_can_remove_one_filmmaker_property_assignment_without_removing_others(): void
+    {
+        $admin = $this->createAdmin();
+        $filmmaker = $this->createFilmmaker();
+        $owner = User::factory()->create();
+        $propertyToRemove = Property::factory()->create(['user_id' => $owner->id]);
+        $propertyToKeep = Property::factory()->create(['user_id' => $owner->id]);
+        $filmmaker->assignedProperties()->attach([$propertyToRemove->id, $propertyToKeep->id]);
+
+        $response = $this->actingAs($admin)->delete(
+            route('admin.users.properties.destroy', [$filmmaker, $propertyToRemove]),
+        );
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('filmmaker_property', [
+            'filmmaker_id' => $filmmaker->id,
+            'property_id' => $propertyToRemove->id,
+        ]);
+        $this->assertDatabaseHas('filmmaker_property', [
+            'filmmaker_id' => $filmmaker->id,
+            'property_id' => $propertyToKeep->id,
+        ]);
+    }
+
+    public function test_assigning_an_unknown_property_code_does_not_create_an_assignment(): void
+    {
+        $admin = $this->createAdmin();
+        $filmmaker = $this->createFilmmaker();
+
+        $response = $this->actingAs($admin)->from(route('admin.users.index'))->post(
+            route('admin.users.properties.store', $filmmaker),
+            ['property_code' => 'CSC-99999999'],
+        );
+
+        $response->assertRedirect(route('admin.users.index'))
+            ->assertSessionHasErrors('property_code');
+        $this->assertDatabaseCount('filmmaker_property', 0);
+    }
+
+    public function test_admin_cannot_assign_properties_to_an_account_without_an_assignment_role(): void
+    {
+        $admin = $this->createAdmin();
+        $regularUser = User::factory()->create();
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.users.properties.store', $regularUser),
+            ['property_code' => 'CSC-00000001'],
+        );
+
+        $response->assertNotFound();
+    }
+
+    public function test_non_admin_cannot_assign_a_property_to_a_filmmaker(): void
+    {
+        $regularUser = User::factory()->create();
+        $filmmaker = $this->createFilmmaker();
+        $property = Property::factory()->create([
+            'user_id' => User::factory()->create()->id,
+        ]);
+
+        $response = $this->actingAs($regularUser)->post(
+            route('admin.users.properties.store', $filmmaker),
+            ['property_code' => $property->identification_code],
+        );
+
+        $response->assertForbidden();
+        $this->assertDatabaseCount('filmmaker_property', 0);
+    }
+
+    public function test_admin_cannot_remove_a_filmmaker_assignment_that_does_not_exist(): void
+    {
+        $admin = $this->createAdmin();
+        $filmmaker = $this->createFilmmaker();
+        $property = Property::factory()->create([
+            'user_id' => User::factory()->create()->id,
+        ]);
+
+        $response = $this->actingAs($admin)->delete(
+            route('admin.users.properties.destroy', [$filmmaker, $property]),
+        );
+
+        $response->assertNotFound();
+        $this->assertDatabaseCount('filmmaker_property', 0);
     }
 
     public function test_admin_can_render_account_management(): void
@@ -651,6 +805,100 @@ class UserRoleAccessTest extends TestCase
             ->assertSee('Primera propiedad')
             ->assertSee('Segunda propiedad')
             ->assertSee(route('admin.users.index'));
+    }
+
+    public function test_admin_can_find_properties_by_identification_code(): void
+    {
+        $owner = User::factory()->create();
+        $property = Property::factory()->create([
+            'user_id' => $owner->id,
+            'title' => 'Inmueble identificado',
+        ]);
+        Property::factory()->create([
+            'user_id' => $owner->id,
+            'title' => 'Inmueble fuera de la búsqueda',
+        ]);
+        $admin = $this->createAdmin();
+        $identificationCode = sprintf('CSC-%08d', $property->id);
+
+        $response = $this->actingAs($admin)->get(route('dashboard.index', [
+            'search' => $identificationCode,
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Inmueble identificado')
+            ->assertSee($identificationCode)
+            ->assertDontSee('Inmueble fuera de la búsqueda');
+    }
+
+    public function test_admin_can_find_properties_by_title_location_and_owner_details(): void
+    {
+        $owner = User::factory()->create([
+            'name' => 'Propietario objetivo',
+            'email' => 'propietario.objetivo@example.test',
+        ]);
+        $property = Property::factory()->create([
+            'user_id' => $owner->id,
+            'title' => 'Casa de búsqueda',
+            'city' => 'Cartagena',
+        ]);
+        Property::factory()->create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Otro inmueble',
+            'city' => 'Cali',
+        ]);
+        $admin = $this->createAdmin();
+
+        foreach ([
+            'Casa de búsqueda',
+            'Cartagena',
+            'Propietario objetivo',
+            'propietario.objetivo@example.test',
+        ] as $term) {
+            $this->actingAs($admin)
+                ->get(route('dashboard.index', ['search' => $term]))
+                ->assertOk()
+                ->assertSee($property->title)
+                ->assertDontSee('Otro inmueble');
+        }
+    }
+
+    public function test_property_search_filters_do_not_override_the_owner_scope(): void
+    {
+        $owner = User::factory()->create();
+        $ownedProperty = Property::factory()->create([
+            'user_id' => $owner->id,
+            'title' => 'Inmueble propio',
+        ]);
+        Property::factory()->create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Inmueble ajeno',
+        ]);
+
+        $response = $this->actingAs($owner)->get(route('dashboard.index', [
+            'search' => 'Inmueble ajeno',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Inmueble propio')
+            ->assertSee(sprintf('CSC-%08d', $ownedProperty->id))
+            ->assertDontSee('Inmueble ajeno');
+    }
+
+    public function test_admin_property_search_is_preserved_in_pagination_links(): void
+    {
+        $owner = User::factory()->create();
+
+        Property::factory()->count(11)->create([
+            'user_id' => $owner->id,
+            'city' => 'Cartagena',
+        ]);
+
+        $response = $this->actingAs($this->createAdmin())
+            ->get(route('dashboard.index', ['search' => 'Cartagena']));
+
+        $response->assertOk()
+            ->assertSee('search=Cartagena');
     }
 
     public function test_admin_login_redirects_to_the_management_dashboard(): void

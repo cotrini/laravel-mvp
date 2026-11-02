@@ -42,13 +42,11 @@
             right: 16px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 16px;
             pointer-events: none;
         }
 
-        .viewer-tour-card,
-        .viewer-back-link {
+        .viewer-tour-card {
             display: inline-flex;
             align-items: center;
             gap: 11px;
@@ -59,10 +57,7 @@
             color: #fff;
             backdrop-filter: blur(12px);
             pointer-events: auto;
-        }
-
-        .viewer-tour-card {
-            max-width: min(520px, calc(100vw - 150px));
+            max-width: min(520px, calc(100vw - 32px));
             padding: 10px 14px 10px 10px;
         }
 
@@ -91,21 +86,6 @@
             margin-top: 3px;
             color: rgb(255 255 255 / 68%);
             font-size: 11px;
-        }
-
-        .viewer-back-link {
-            min-height: 40px;
-            padding: 0 14px;
-            color: #ffe22d;
-            font-size: 12px;
-            font-weight: 750;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .viewer-back-link:hover {
-            background: #12877b;
-            color: #fff;
         }
 
         .scene-nav {
@@ -169,11 +149,10 @@
                 top: 10px;
                 left: 10px;
                 right: 10px;
-                align-items: flex-start;
             }
 
             .viewer-tour-card {
-                max-width: calc(100vw - 118px);
+                max-width: calc(100vw - 20px);
                 gap: 8px;
                 padding: 8px;
             }
@@ -185,12 +164,6 @@
 
             .viewer-tour-title { font-size: 11px; }
             .viewer-scene-title { font-size: 10px; }
-
-            .viewer-back-link {
-                min-height: 36px;
-                padding: 0 10px;
-                font-size: 11px;
-            }
 
             .scene-nav {
                 right: 10px;
@@ -220,7 +193,6 @@
                 <div class="viewer-scene-title" id="current-scene-title">{{ $scene->title }}</div>
             </div>
         </div>
-        <a class="viewer-back-link" href="{{ route('tours360.show', $tour->slug) }}">Volver al recorrido</a>
     </header>
 
     <nav class="scene-nav" aria-label="Escenas del recorrido">
@@ -254,17 +226,6 @@
                         yaw: 0,
                         type: 'equirectangular',
                         panorama: {{ Illuminate\Support\Js::from($tourScene->public_image_url) }},
-                        hotSpots: [
-                            @foreach($tourScene->hotspots as $hotspot)
-                                {
-                                    pitch: {{ (float) $hotspot->pitch }},
-                                    yaw: {{ (float) $hotspot->yaw }},
-                                    type: 'scene',
-                                    text: {{ Illuminate\Support\Js::from($hotspot->label) }},
-                                    sceneId: 'scene_{{ $hotspot->target_scene_id }}',
-                                },
-                            @endforeach
-                        ],
                     },
                 @endforeach
             },

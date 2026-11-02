@@ -83,6 +83,11 @@ class Property extends Model
         ];
     }
 
+    public function getIdentificationCodeAttribute(): string
+    {
+        return 'CSC-'.str_pad((string) $this->getKey(), 8, '0', STR_PAD_LEFT);
+    }
+
     public function scopeVerified(Builder $query): Builder
     {
         return $query->where('is_verified', true);

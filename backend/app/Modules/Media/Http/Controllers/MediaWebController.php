@@ -13,6 +13,8 @@ use Throwable;
 
 class MediaWebController extends Controller
 {
+    private const MAX_PROPERTY_IMAGES = 10;
+
     /**
      * Muestra una lista de todos los archivos multimedia.
      */
@@ -57,6 +59,15 @@ class MediaWebController extends Controller
 
         $file = $validated['file'];
         $property = Property::query()->findOrFail($validated['property_id']);
+
+        if (
+            $validated['type'] === 'image'
+            && $property->media()->where('type', 'image')->count() >= self::MAX_PROPERTY_IMAGES
+        ) {
+            return back()->withErrors([
+                'file' => 'Cada inmueble puede tener máximo '.self::MAX_PROPERTY_IMAGES.' fotografías.',
+            ]);
+        }
 
         $directory = $this->storageDirectory($validated['type'], $property->id);
         $path = $file->store($directory, 'r2');

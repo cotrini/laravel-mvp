@@ -34,9 +34,20 @@ class PropertyAppraisalTest extends TestCase
 
         $appraiser = User::query()->where('email', 'appraiser@example.test')->firstOrFail();
 
-        $this->actingAs($admin)->put(route('admin.users.properties.update', $appraiser), [
-            'property_ids' => [$property->id],
-        ])->assertRedirect(route('admin.users.index'));
+        $this->actingAs($admin)->get(route('admin.users.index', [
+            'assignment_user_id' => $appraiser->id,
+            'property_code' => $property->identification_code,
+        ]))
+            ->assertOk()
+            ->assertSee($property->title)
+            ->assertSee('Asignar propiedad');
+
+        $this->actingAs($admin)->post(route('admin.users.properties.store', $appraiser), [
+            'property_code' => $property->identification_code,
+        ])->assertRedirect(route('admin.users.index', [
+            'assignment_user_id' => $appraiser->id,
+            'property_code' => $property->identification_code,
+        ]));
 
         $this->assertDatabaseHas('users', [
             'id' => $appraiser->id,

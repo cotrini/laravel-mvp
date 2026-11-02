@@ -33,7 +33,7 @@ class PropertyWebController extends Controller
 
     private const MAX_PROPERTY_IMAGE_SIZE_KB = 15360;
 
-    private const MAX_PROPERTY_IMAGES = 20;
+    private const MAX_PROPERTY_IMAGES = 10;
 
     // Constantes centralizadas para los límites de precios en Colombia
     private const MIN_PRICE_GENERAL = 200000;

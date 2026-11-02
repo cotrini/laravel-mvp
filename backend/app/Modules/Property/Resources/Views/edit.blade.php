@@ -72,11 +72,11 @@
                     @csrf
                     @include('properties::partials.image-uploader', [
                         'labelClasses' => $labelClasses,
-                        'maxImages' => max(0, 20 - $propertyImages->count()),
+                        'maxImages' => max(0, 10 - $propertyImages->count()),
                     ])
                     <button
                         type="submit"
-                        @disabled($propertyImages->count() >= 20)
+                        @disabled($propertyImages->count() >= 10)
                         class="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-800 px-5 text-sm font-extrabold text-white transition hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Agregar fotos

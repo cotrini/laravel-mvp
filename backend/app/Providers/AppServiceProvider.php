@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Modules\User\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\File;
@@ -48,6 +49,27 @@ class AppServiceProvider extends ServiceProvider
                     'userName' => $notifiable->name,
                     'verificationUrl' => $url,
                     'expirationMinutes' => config('auth.verification.expire', 60),
+                ]);
+        });
+
+        ResetPassword::toMailUsing(function (User $user, string $token): MailMessage {
+            $resetUrl = route('password.reset', [
+                'token' => $token,
+                'email' => $user->getEmailForPasswordReset(),
+            ]);
+
+            return (new MailMessage)
+                ->subject('Restablece tu contraseña | Colombia Sin Comisión')
+                ->view([
+                    'html' => 'mail.reset-password',
+                    'text' => 'mail.reset-password-text',
+                ], [
+                    'userName' => $user->name,
+                    'resetUrl' => $resetUrl,
+                    'expirationMinutes' => config(
+                        'auth.passwords.'.config('auth.defaults.passwords').'.expire',
+                        60,
+                    ),
                 ]);
         });
 

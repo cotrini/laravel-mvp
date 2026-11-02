@@ -47,7 +47,7 @@
                     </div>
                     @include('properties::partials.image-uploader', [
                         'labelClasses' => $labelClasses,
-                        'maxImages' => 20,
+                        'maxImages' => 10,
                     ])
                 </section>
 

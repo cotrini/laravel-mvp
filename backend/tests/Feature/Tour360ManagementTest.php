@@ -111,6 +111,48 @@ class Tour360ManagementTest extends TestCase
         ]);
     }
 
+    public function test_public_tour_viewer_uses_scene_names_for_navigation_without_hotspots(): void
+    {
+        $owner = User::factory()->create();
+        $property = $this->createProperty($owner);
+        $tour = Tour::factory()->create(['is_published' => true]);
+        $property->tour()->associate($tour)->save();
+        $scene = $tour->scenes()->create([
+            'title' => 'Sala principal',
+            'image_url' => 'https://example.com/sala-360.jpg',
+            'sort_order' => 0,
+        ]);
+        $targetScene = $tour->scenes()->create([
+            'title' => 'Habitación',
+            'image_url' => 'https://example.com/habitacion-360.jpg',
+            'sort_order' => 1,
+        ]);
+        $scene->hotspots()->create([
+            'target_scene_id' => $targetScene->id,
+            'label' => 'Hotspot de navegación que ya no se muestra',
+            'yaw' => 25,
+            'pitch' => 10,
+        ]);
+
+        $this->get(route('tours360.viewer', [$tour->slug, $scene->id]))
+            ->assertOk()
+            ->assertSee('Sala principal')
+            ->assertSee('Habitación')
+            ->assertSee('data-scene-id="'.$scene->id.'"', false)
+            ->assertSee('data-scene-id="'.$targetScene->id.'"', false)
+            ->assertDontSee('Volver al recorrido')
+            ->assertDontSee('hotSpots')
+            ->assertDontSee('Hotspot de navegación que ya no se muestra');
+
+        $this->get(route('tours360.embed', $tour->id))
+            ->assertOk()
+            ->assertSee('Sala principal')
+            ->assertSee('Habitación')
+            ->assertDontSee('Volver al recorrido')
+            ->assertDontSee('hotSpots')
+            ->assertDontSee('Hotspot de navegación que ya no se muestra');
+    }
+
     public function test_user_cannot_create_a_tour_for_another_users_property(): void
     {
         $owner = User::factory()->create();

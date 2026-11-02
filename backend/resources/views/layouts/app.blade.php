@@ -1125,6 +1125,47 @@
             font-size: 13px;
         }
 
+        .dashboard-property-filter {
+            display: grid;
+            gap: 8px;
+            padding: 16px 23px;
+            border-bottom: 1px solid #edf0f2;
+        }
+
+        .dashboard-property-filter label {
+            color: #555e69;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .dashboard-property-filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dashboard-property-filter input {
+            width: min(100%, 440px);
+            min-height: 43px;
+            padding: 0 13px;
+            border: 1px solid #dfe4e8;
+            border-radius: 9px;
+            color: #303640;
+            font: inherit;
+        }
+
+        .dashboard-property-filter input:focus-visible {
+            border-color: #16877c;
+            outline: 3px solid rgb(22 135 124 / 15%);
+        }
+
+        .dashboard-property-filter-clear {
+            color: #16877c;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
         .dashboard-table-scroll {
             overflow-x: auto;
         }

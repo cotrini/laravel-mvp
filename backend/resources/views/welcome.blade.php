@@ -159,6 +159,7 @@
                                 <p class="property-location">
                                     {{ $property->neighborhood ? $property->neighborhood . ', ' : '' }}{{ $property->city }}, {{ $property->department }}
                                 </p>
+                                <p class="property-location">Código: {{ $property->identification_code }}</p>
                                 @if($property->bedrooms !== null || $property->bathrooms !== null || $property->parking_spaces !== null || $property->built_area_m2 !== null)
                                     <div class="property-card-facts">
                                         @if($property->bedrooms !== null)<span>{{ $property->bedrooms }} hab.</span>@endif

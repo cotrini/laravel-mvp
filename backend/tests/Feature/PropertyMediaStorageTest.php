@@ -178,6 +178,39 @@ class PropertyMediaStorageTest extends TestCase
         Storage::disk('r2')->assertExists($media->url_or_path);
     }
 
+    public function test_admin_media_upload_rejects_images_when_the_property_has_ten(): void
+    {
+        Storage::fake('r2');
+        $owner = User::factory()->create();
+        $property = $this->createProperty($owner);
+        foreach (range(1, 10) as $index) {
+            $property->media()->create([
+                'type' => 'image',
+                'url_or_path' => "Pictures/{$property->id}/photo-{$index}.jpg",
+                'title' => "photo-{$index}.jpg",
+                'mediable_type' => Property::class,
+                'mediable_id' => $property->id,
+            ]);
+        }
+        $admin = User::factory()->create();
+        $admin->role = User::ROLE_ADMIN;
+        $admin->save();
+
+        $response = $this->actingAs($admin)->from(route('media.create'))
+            ->post(route('media.store'), [
+                'property_id' => $property->id,
+                'type' => 'image',
+                'file' => UploadedFile::fake()->image('extra.png'),
+            ]);
+
+        $response->assertRedirect(route('media.create'))
+            ->assertSessionHasErrors([
+                'file' => 'Cada inmueble puede tener máximo 10 fotografías.',
+            ]);
+        $this->assertDatabaseCount('media', 10);
+        $this->assertSame([], Storage::disk('r2')->allFiles());
+    }
+
     private function createProperty(User $owner): Property
     {
         $department = Department::query()->firstOrCreate(['name' => 'Caldas']);

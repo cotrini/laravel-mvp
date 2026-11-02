@@ -70,6 +70,26 @@
                 </div>
             </div>
 
+            @if($user->isAdmin())
+                <form action="{{ route('dashboard.index') }}" method="GET" class="dashboard-property-filter">
+                    <label for="property-search">Buscar por código, inmueble, ubicación o propietario</label>
+                    <div class="dashboard-property-filter-controls">
+                        <input
+                            id="property-search"
+                            name="search"
+                            type="search"
+                            value="{{ $search }}"
+                            maxlength="100"
+                            placeholder="Ej. CSC-00000001, ciudad o correo"
+                        >
+                        <button type="submit" class="dashboard-add-button">Buscar</button>
+                        @if($search !== '')
+                            <a class="dashboard-property-filter-clear" href="{{ route('dashboard.index') }}">Limpiar</a>
+                        @endif
+                    </div>
+                </form>
+            @endif
+
             @if($properties->isNotEmpty())
                 <div class="dashboard-table-scroll">
                     <table class="dashboard-table">
@@ -108,6 +128,7 @@
                                             <div class="dashboard-property-copy">
                                                 <a href="{{ route('properties.show', $property->id) }}">{{ $property->title }}</a>
                                                 <span>{{ ucfirst($property->property_type) }} · {{ $property->city }}</span>
+                                                <span>Código: {{ $property->identification_code }}</span>
                                                 <span class="dashboard-operation-badge {{ $property->listing_type === 'alquiler' ? 'dashboard-operation-badge--rental' : ($property->listing_type === 'venta' ? 'dashboard-operation-badge--sale' : '') }}">
                                                     {{ $property->listing_type === 'alquiler' ? 'En alquiler' : ($property->listing_type === 'venta' ? 'En venta' : 'Operación sin especificar') }}
                                                 </span>
@@ -124,7 +145,18 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="dashboard-status">{{ ucfirst($property->status) }}</span>
+                                        @php
+                                            $propertyStatusLabel = ! $property->is_active
+                                                ? 'Inactiva'
+                                                : match (strtolower($property->status ?? 'active')) {
+                                                    'active' => 'Disponible',
+                                                    'publicado', 'published' => 'Publicado',
+                                                    'pendiente' => 'En revisión',
+                                                    'pausado' => 'Pausado',
+                                                    default => ucfirst($property->status ?? 'Disponible'),
+                                                };
+                                        @endphp
+                                        <span class="dashboard-status">{{ $propertyStatusLabel }}</span>
                                     </td>
                                     <td>
                                         @if($property->tour)

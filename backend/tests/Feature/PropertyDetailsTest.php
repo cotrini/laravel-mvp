@@ -26,18 +26,24 @@ class PropertyDetailsTest extends TestCase
             ->assertOk()
             ->assertSee('No verificada')
             ->assertSee('Verificado')
+            ->assertSee(sprintf('CSC-%08d', $unverifiedProperty->id))
+            ->assertSee(sprintf('CSC-%08d', $verifiedProperty->id))
             ->assertSee('bg-blue-50 text-blue-700');
         $this->get(route('properties.index'))
             ->assertOk()
             ->assertSee('No verificada')
             ->assertSee('Verificado')
+            ->assertSee(sprintf('CSC-%08d', $unverifiedProperty->id))
+            ->assertSee(sprintf('CSC-%08d', $verifiedProperty->id))
             ->assertSee('bg-slate-100 text-slate-600');
         $this->get(route('properties.show', $unverifiedProperty))
             ->assertOk()
-            ->assertSee('No verificada');
+            ->assertSee('No verificada')
+            ->assertSee(sprintf('CSC-%08d', $unverifiedProperty->id));
         $this->get(route('properties.show', $verifiedProperty))
             ->assertOk()
             ->assertSee('Verificado')
+            ->assertSee(sprintf('CSC-%08d', $verifiedProperty->id))
             ->assertSee('<circle cx="10" cy="10" r="8"></circle>', false);
     }
 
@@ -166,6 +172,9 @@ class PropertyDetailsTest extends TestCase
         $response->assertOk()
             ->assertSee('data-phone="573001234567"', false)
             ->assertSee('data-phone="573113611426"', false)
+            ->assertSee('data-gallery-photo-count="2"', false)
+            ->assertSee('aria-label="Ver las 2 fotos"', false)
+            ->assertSee('class="property-media-tile property-media-tile--count"', false)
             ->assertSee('data-gallery-previous', false)
             ->assertSee('data-gallery-next', false)
             ->assertSee('data-gallery-counter', false)

@@ -84,7 +84,7 @@
 
         <!-- ¿Olvidaste tu contraseña? -->
         <div class="text-right mt-4 mb-6">
-            <a href="#" class="text-sm font-medium text-blue-600 hover:underline">
+            <a href="{{ route('password.request') }}" class="text-sm font-medium text-blue-600 hover:underline">
                 ¿Olvidaste tu contraseña?
             </a>
         </div>

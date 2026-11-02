@@ -167,30 +167,106 @@
                     </div>
 
                     @if ($managedUser->isFilmmaker() || $managedUser->isAppraiser())
-                        <form action="{{ route('admin.users.properties.update', $managedUser) }}" method="POST" class="mt-5 border-t border-gray-100 pt-5">
-                            @csrf
-                            @method('PUT')
-                            <label for="property_ids_{{ $managedUser->id }}" class="mb-2 block text-sm font-semibold text-gray-600">
-                                {{ $managedUser->isAppraiser() ? 'Inmuebles asignados al avaluador' : 'Inmuebles asignados' }}
-                            </label>
-                            <select
-                                id="property_ids_{{ $managedUser->id }}"
-                                name="property_ids[]"
-                                multiple
-                                size="5"
-                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            >
-                                @foreach ($properties as $property)
-                                    <option value="{{ $property->id }}" @selected($managedUser->isAppraiser() ? $managedUser->assignedAppraisalProperties->contains('id', $property->id) : $managedUser->assignedProperties->contains('id', $property->id))>
-                                        {{ $property->title }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <p class="mt-2 text-sm text-gray-500">Usa Ctrl o Cmd para seleccionar varias propiedades.</p>
-                            <button type="submit" class="mt-4 rounded-xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 transition hover:bg-blue-50">
-                                Guardar asignaciones
-                            </button>
-                        </form>
+                        @php
+                            $managedUserAssignments = $managedUser->isAppraiser()
+                                ? $managedUser->assignedAppraisalProperties
+                                : $managedUser->assignedProperties;
+                            $assignmentSearchMatchesUser = $assignmentLookupPerformed
+                                && $assignmentUserId === $managedUser->id;
+                        @endphp
+                        <div class="mt-5 border-t border-gray-100 pt-5">
+                            <h4 class="mb-3 text-sm font-semibold text-gray-700">
+                                {{ $managedUser->isAppraiser() ? 'Inmuebles asignados al avaluador' : 'Inmuebles asignados al Filmmaker' }}
+                            </h4>
+                            <form action="{{ route('admin.users.index') }}" method="GET" role="search" class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                                <input type="hidden" name="assignment_user_id" value="{{ $managedUser->id }}">
+                                @if ($search !== '')
+                                    <input type="hidden" name="search" value="{{ $search }}">
+                                @endif
+                                <input type="hidden" name="page" value="{{ $users->currentPage() }}">
+                                <div>
+                                    <label for="property_code_{{ $managedUser->id }}" class="mb-2 block text-sm font-semibold text-gray-600">
+                                        Buscar inmueble por código
+                                    </label>
+                                    <input
+                                        id="property_code_{{ $managedUser->id }}"
+                                        name="property_code"
+                                        type="search"
+                                        value="{{ $assignmentSearchMatchesUser ? $assignmentCode : '' }}"
+                                        required
+                                        maxlength="32"
+                                        placeholder="Ej. CSC-00000001"
+                                        class="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                    >
+                                </div>
+                                <button type="submit" class="self-end rounded-xl border border-blue-200 px-4 py-3 font-semibold text-blue-700 transition hover:bg-blue-50">
+                                    Buscar inmueble
+                                </button>
+                            </form>
+
+                            @if ($assignmentSearchMatchesUser)
+                                @if ($assignmentProperty)
+                                    @php
+                                        $propertyAlreadyAssigned = $managedUserAssignments->contains('id', $assignmentProperty->id);
+                                    @endphp
+                                    <div class="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                        <div>
+                                            <p class="font-semibold text-slate-800">{{ $assignmentProperty->title }}</p>
+                                            <p class="mt-1 text-sm text-gray-600">
+                                                {{ $assignmentProperty->identification_code }} ·
+                                                {{ $assignmentProperty->city }}, {{ $assignmentProperty->department }}
+                                            </p>
+                                            @if ($assignmentProperty->user)
+                                                <p class="mt-1 text-sm text-gray-500">Propietario: {{ $assignmentProperty->user->name }}</p>
+                                            @endif
+                                        </div>
+                                        @if ($propertyAlreadyAssigned)
+                                            <span class="rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700">
+                                                Ya asignado
+                                            </span>
+                                        @else
+                                            <form action="{{ route('admin.users.properties.store', $managedUser) }}" method="POST">
+                                                @csrf
+                                                @if ($search !== '')
+                                                    <input type="hidden" name="search" value="{{ $search }}">
+                                                @endif
+                                                <input type="hidden" name="page" value="{{ $users->currentPage() }}">
+                                                <input type="hidden" name="property_code" value="{{ $assignmentProperty->identification_code }}">
+                                                <button type="submit" class="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700">
+                                                    Asignar propiedad
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @else
+                                    <p class="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800" role="status">
+                                        No encontramos un inmueble con el código {{ $assignmentCode }}.
+                                    </p>
+                                @endif
+                            @endif
+
+                            <ul class="mt-4 space-y-2">
+                                @forelse ($managedUserAssignments as $assignedProperty)
+                                    <li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 p-3">
+                                        <div>
+                                            <p class="font-medium text-slate-800">{{ $assignedProperty->title }}</p>
+                                            <p class="text-sm text-gray-500">
+                                                {{ $assignedProperty->identification_code }} · {{ $assignedProperty->city }}
+                                            </p>
+                                        </div>
+                                        <form action="{{ route('admin.users.properties.destroy', [$managedUser, $assignedProperty]) }}" method="POST">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50">
+                                                Retirar asignación
+                                            </button>
+                                        </form>
+                                    </li>
+                                @empty
+                                    <li class="text-sm text-gray-500">Aún no tiene inmuebles asignados.</li>
+                                @endforelse
+                            </ul>
+                        </div>
                     @endif
                 </article>
             @empty

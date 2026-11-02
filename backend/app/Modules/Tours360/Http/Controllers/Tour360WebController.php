@@ -127,51 +127,25 @@ class Tour360WebController extends Controller
     {
         $tour = Tour::published()
             ->where('slug', $slug)
-            ->with(['scenes.hotspots.targetScene', 'scenes'])
+            ->with('scenes')
             ->firstOrFail();
 
         $scene = $tour->scenes->firstWhere('id', $sceneId)
             ?? abort(404, 'La escena no pertenece a este recorrido.');
 
-        $hotspotsData = $scene->hotspots->map(fn ($hotspot) => [
-            'id' => $hotspot->id,
-            'label' => $hotspot->label,
-            'yaw' => (float) $hotspot->yaw,
-            'pitch' => (float) $hotspot->pitch,
-            'target_scene_id' => $hotspot->target_scene_id,
-        ]);
-
-        $scenesData = $tour->scenes->map(fn ($tourScene) => [
-            'id' => $tourScene->id,
-            'title' => $tourScene->title,
-        ]);
-
-        return view('tours360::Tours.viewer', compact('tour', 'scene', 'hotspotsData', 'scenesData'));
+        return view('tours360::Tours.viewer', compact('tour', 'scene'));
     }
 
     public function embed(int $id): View
     {
         $tour = Tour::query()
-            ->with(['scenes.hotspots.targetScene', 'scenes'])
+            ->with('scenes')
             ->findOrFail($id);
 
         $scene = $tour->scenes->first()
             ?? abort(404, 'El recorrido no tiene escenas configuradas.');
 
-        $hotspotsData = $scene->hotspots->map(fn ($hotspot) => [
-            'id' => $hotspot->id,
-            'label' => $hotspot->label,
-            'yaw' => (float) $hotspot->yaw,
-            'pitch' => (float) $hotspot->pitch,
-            'target_scene_id' => $hotspot->target_scene_id,
-        ]);
-
-        $scenesData = $tour->scenes->map(fn ($tourScene) => [
-            'id' => $tourScene->id,
-            'title' => $tourScene->title,
-        ]);
-
-        return view('tours360::Tours.viewer', compact('tour', 'scene', 'hotspotsData', 'scenesData'));
+        return view('tours360::Tours.viewer', compact('tour', 'scene'));
     }
 
     public function edit(Request $request, int $id): View

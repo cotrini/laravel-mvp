@@ -24,6 +24,8 @@ class PropertyImageManagementTest extends TestCase
             ->get(route('properties.create'))
             ->assertOk()
             ->assertSee('Arrastra tus fotos aquí o selecciona archivos')
+            ->assertSee('Máximo 10 fotografías por inmueble')
+            ->assertSee('data-max-files="10"', false)
             ->assertSee('data-image-dropzone', false)
             ->assertDontSee('name="tour_360_url"', false)
             ->assertDontSee('name="tour_3d_url"', false);
@@ -159,7 +161,7 @@ class PropertyImageManagementTest extends TestCase
         Storage::disk('r2')->assertExists($otherImagePath);
     }
 
-    public function test_photo_upload_rejects_non_owners_and_caps_total_photos_at_twenty(): void
+    public function test_photo_upload_rejects_non_owners_and_caps_total_photos_at_ten(): void
     {
         Storage::fake('r2');
         $owner = User::factory()->create();
@@ -172,7 +174,7 @@ class PropertyImageManagementTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($owner);
-        foreach (range(1, 20) as $index) {
+        foreach (range(1, 10) as $index) {
             $property->media()->create([
                 'type' => 'image',
                 'url_or_path' => "Pictures/{$property->id}/photo-{$index}.jpg",
@@ -188,10 +190,47 @@ class PropertyImageManagementTest extends TestCase
             ])
             ->assertRedirect(route('properties.edit', $property))
             ->assertSessionHasErrors([
-                'images' => 'Cada inmueble puede tener máximo 20 fotografías. Elimina alguna antes de agregar más.',
+                'images' => 'Cada inmueble puede tener máximo 10 fotografías. Elimina alguna antes de agregar más.',
             ]);
 
-        $this->assertDatabaseCount('media', 20);
+        $this->assertDatabaseCount('media', 10);
+        $this->assertSame([], Storage::disk('r2')->allFiles());
+    }
+
+    public function test_property_creation_rejects_more_than_ten_photos(): void
+    {
+        Storage::fake('r2');
+        $department = Department::query()->firstOrCreate(['name' => 'Caldas']);
+        $city = City::query()->firstOrCreate([
+            'department_id' => $department->id,
+            'name' => 'Manizales',
+        ]);
+        $owner = User::factory()->create();
+
+        $response = $this->actingAs($owner)
+            ->from(route('properties.create'))
+            ->post(route('properties.store'), [
+                'title' => 'Apartamento con muchas fotos',
+                'description' => 'Descripción del inmueble.',
+                'price' => 250000000,
+                'property_type' => 'apartamento',
+                'listing_type' => 'venta',
+                'department_id' => $department->id,
+                'city_id' => $city->id,
+                'neighborhood' => 'Chipre',
+                'is_furnished' => '0',
+                'has_elevator' => '0',
+                'images' => array_map(
+                    fn (int $index): UploadedFile => UploadedFile::fake()->image("photo-{$index}.jpg"),
+                    range(1, 11),
+                ),
+            ]);
+
+        $response->assertRedirect(route('properties.create'))
+            ->assertSessionHasErrors([
+                'images' => 'Cada inmueble puede tener máximo 10 fotografías.',
+            ]);
+        $this->assertDatabaseMissing('properties', ['title' => 'Apartamento con muchas fotos']);
         $this->assertSame([], Storage::disk('r2')->allFiles());
     }
 
