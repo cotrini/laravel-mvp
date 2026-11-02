@@ -1,30 +1,35 @@
-name: Deploy to Local Production
+name: Deploy Laravel to Hostinger VPS
 
 on:
   push:
-    branches: [ deploy ]
+    branches: [ deploy ] # Se activará cada vez que hagas push a la rama 'deploy'
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: deploy
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Sync to Local Project Folder
-        shell: cmd
-        run: |
-          robocopy . "C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision" /E /XD .git node_modules vendor /XF .env
-          IF %ERRORLEVEL% LEQ 7 EXIT 0 ELSE EXIT %ERRORLEVEL%
-
-      - name: Run database migrations
-        working-directory: C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision\backend
-        run: php artisan migrate --force
-
-      - name: Clear Cache & Optimize
-        working-directory: C:\Users\Cotrini\Documents\Unal\Projects\Colombiasincomision\backend
-        run: |
-          php artisan config:clear
-          php artisan view:clear
+    - name: Deploy to Hostinger VPS via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          # 1. Entra a la ruta del proyecto en CloudPanel (reemplaza 'tudominio.com' por tu dominio real o ruta de CloudPanel)
+          cd /home/cloupanel/tudominio.com/htdocs/colombiasincomision/backend
+          
+          # 2. Trae los últimos cambios del repositorio
+          git pull origin deploy
+          
+          # 3. Instala dependencias de PHP para producción
+          composer install --no-dev --optimize-autoloader --no-interaction
+          
+          # 4. Ejecuta migraciones y limpia cachés de Laravel
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
