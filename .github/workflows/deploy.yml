@@ -9,33 +9,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
     - name: Deploy to Hostinger VPS via SSH
       uses: appleboy/ssh-action@master
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
+        envs: GH_PAT
+        script_stop: true
         script: |
-          # Nos movemos a la carpeta principal del sitio web
-          cd /home/colombiasincomision/htdocs/www.colombiasincomision.com
-          
-          # Si la carpeta backend no existe como un repositorio git válido, limpiamos y clonamos correctamente
-          if [ ! -d "backend/.git" ]; then
-            rm -rf backend
-            mkdir -p backend
-            git clone git@github.com:cotrini/laravel-mvp.git backend
-          else
-            cd backend
-            git pull origin deploy
+          set -euo pipefail
+
+          SITE_DIR="/home/colombiasincomision/htdocs/www.colombiasincomision.com"
+          REPO_DIR="$SITE_DIR/backend"
+          REPO_URL="https://${GH_PAT}@github.com/cotrini/laravel-mvp.git"
+
+          cd "$SITE_DIR"
+
+          # Primera vez: clonar (si existe una carpeta sin .git, se respalda en vez de borrarla)
+          if [ ! -d "$REPO_DIR/.git" ]; then
+            if [ -e "$REPO_DIR" ]; then
+              mv "$REPO_DIR" "${REPO_DIR}_old_$(date +%s)"
+            fi
+            git clone -b deploy "$REPO_URL" "$REPO_DIR"
+            git -C "$REPO_DIR" remote set-url origin https://github.com/cotrini/laravel-mvp.git
           fi
-          
-          # Nos movemos a la ruta exacta donde ahora sí está el composer.json de Laravel
-          cd /home/colombiasincomision/htdocs/www.colombiasincomision.com/backend
-          
+
+          # Actualizar código a lo último de la rama deploy
+          cd "$REPO_DIR"
+          git fetch "$REPO_URL" deploy
+          git reset --hard FETCH_HEAD
+
+          # Detectar dónde está realmente el proyecto Laravel
+          if [ -f "$REPO_DIR/composer.json" ]; then
+            APP_DIR="$REPO_DIR"
+          elif [ -f "$REPO_DIR/backend/composer.json" ]; then
+            APP_DIR="$REPO_DIR/backend"
+          else
+            echo "ERROR: no se encontró composer.json en $REPO_DIR ni en $REPO_DIR/backend"
+            ls -la "$REPO_DIR"
+            exit 1
+          fi
+          echo "Proyecto Laravel en: $APP_DIR"
+          cd "$APP_DIR"
+
+          # El .env no viene en el repo: debe existir en el servidor
+          if [ ! -f .env ]; then
+            echo "ERROR: falta el archivo .env en $APP_DIR. Créalo en el VPS (cp .env.example .env) y configúralo."
+            exit 1
+          fi
+
           composer install --no-dev --optimize-autoloader --no-interaction
+
           php artisan migrate --force
           php artisan config:cache
           php artisan route:cache
