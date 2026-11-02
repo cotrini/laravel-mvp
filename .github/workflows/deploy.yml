@@ -22,7 +22,7 @@ jobs:
           cd /home/colombiasincomision/htdocs/www.colombiasincomision.com
           if [ ! -d "backend/.git" ]; then
             rm -rf backend
-            git clone git@github.com:TU_USUARIO/TU_REPOSITORIO.git backend
+            git clone git@github.com:cotrini/laravel-mvp.git backend
           fi
           cd backend
           git pull origin deploy
