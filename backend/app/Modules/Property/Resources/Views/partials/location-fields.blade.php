@@ -139,9 +139,9 @@
         }
 
         const map = window.L.map(mapElement).setView([4.5709, -74.2973], 6);
-        window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
 
         let marker = null;
