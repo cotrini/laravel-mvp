@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Payment\Models\PaymentOrder;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
@@ -29,6 +30,7 @@ class PropertyLocationPickerTest extends TestCase
             'latitude' => 5.0601234,
             'longitude' => -75.5012345,
         ]);
+        PaymentOrder::factory()->approved()->create(['user_id' => $owner->id]);
 
         $this->actingAs($owner)
             ->get(route('properties.create'))

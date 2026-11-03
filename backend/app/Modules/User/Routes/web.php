@@ -2,6 +2,7 @@
 
 use App\Modules\User\Http\Controllers\Auth\FirebaseAuthController;
 use App\Modules\User\Http\Controllers\Auth\PasswordResetController;
+use App\Modules\User\Http\Controllers\HabeasDataController;
 use App\Modules\User\Http\Controllers\UserWebController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,8 @@ Route::middleware('web')->group(function () {
     Route::post('/logout', [UserWebController::class, 'logout'])->name('logout');
 
     Route::middleware('auth')->group(function () {
+        Route::post('/habeas-data/accept', [HabeasDataController::class, 'accept'])
+            ->name('habeas-data.accept');
         Route::get('/completar-telefono', [UserWebController::class, 'showCompletePhoneForm'])
             ->name('profile.phone.show');
         Route::post('/completar-telefono', [UserWebController::class, 'completePhone'])

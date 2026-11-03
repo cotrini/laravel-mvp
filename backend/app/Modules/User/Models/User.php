@@ -2,6 +2,7 @@
 
 namespace App\Modules\User\Models;
 
+use App\Modules\Payment\Models\PaymentOrder;
 use App\Modules\Property\Models\Property;
 use App\Modules\User\Factories\UserFactory;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
@@ -118,6 +119,27 @@ class User extends Authenticatable implements MustVerifyEmail
             || ($this->isFilmmaker() && $this->assignedProperties()->whereKey($property->getKey())->exists());
     }
 
+    public function canUploadPropertyVideo(Property $property): bool
+    {
+        return $this->canManagePropertyMedia($property)
+            || ($this->role === self::ROLE_USER && (int) $property->user_id === (int) $this->id);
+    }
+
+    public function hasAcceptedHabeasData(): bool
+    {
+        return $this->habeas_data_accepted_at !== null;
+    }
+
+    public function habeasDataConsents(): HasMany
+    {
+        return $this->hasMany(HabeasDataConsent::class);
+    }
+
+    public function paymentOrders(): HasMany
+    {
+        return $this->hasMany(PaymentOrder::class);
+    }
+
     public function canUploadAppraisal(Property $property): bool
     {
         return $this->isAppraiser()
@@ -140,6 +162,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'email_verification_required' => 'boolean',
+            'habeas_data_accepted_at' => 'datetime',
             'is_banned' => 'boolean',
             'password' => 'hashed',
         ];

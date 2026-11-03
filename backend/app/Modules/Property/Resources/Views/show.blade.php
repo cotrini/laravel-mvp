@@ -1181,6 +1181,8 @@
             </div>
         </header>
 
+        @include('properties::partials.share-buttons', ['url' => $propertyUrl, 'title' => $property->title])
+
         @if($propertyHighlights->isNotEmpty())
             <section class="property-highlight-strip" aria-label="Características principales">
                 @foreach($propertyHighlights as $highlight)

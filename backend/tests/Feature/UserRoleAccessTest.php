@@ -685,12 +685,24 @@ class UserRoleAccessTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_standard_user_cannot_upload_a_video_to_an_owned_property(): void
+    public function test_standard_user_can_submit_video_upload_for_an_owned_property(): void
     {
         $owner = User::factory()->create();
         $property = Property::factory()->create(['user_id' => $owner->id]);
 
         $response = $this->actingAs($owner)->post(
+            route('properties.video.store', $property),
+            [],
+        );
+
+        $response->assertSessionHasErrors('video');
+    }
+
+    public function test_standard_user_cannot_upload_a_video_to_someone_elses_property(): void
+    {
+        $property = Property::factory()->create(['user_id' => User::factory()->create()->id]);
+
+        $response = $this->actingAs(User::factory()->create())->post(
             route('properties.video.store', $property),
             [],
         );
@@ -734,7 +746,7 @@ class UserRoleAccessTest extends TestCase
             ->assertSee(route('properties.video.store', $property), false);
     }
 
-    public function test_standard_user_edit_form_hides_video_upload_controls(): void
+    public function test_standard_user_edit_form_shows_video_upload_controls_for_owned_property(): void
     {
         $owner = User::factory()->create();
         $property = Property::factory()->create(['user_id' => $owner->id]);
@@ -742,8 +754,8 @@ class UserRoleAccessTest extends TestCase
         $response = $this->actingAs($owner)->get(route('properties.edit', $property));
 
         $response->assertOk()
-            ->assertDontSee('Video del inmueble')
-            ->assertDontSee(route('properties.video.store', $property), false);
+            ->assertSee('Video del inmueble')
+            ->assertSee(route('properties.video.store', $property), false);
     }
 
     public function test_filmmaker_cannot_delete_an_assigned_property(): void
@@ -771,7 +783,7 @@ class UserRoleAccessTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_standard_user_dashboard_hides_video_and_tour_creation_controls(): void
+    public function test_standard_user_dashboard_shows_video_control_but_hides_tour_creation_controls(): void
     {
         $owner = User::factory()->create();
         Property::factory()->create(['user_id' => $owner->id]);
@@ -779,10 +791,8 @@ class UserRoleAccessTest extends TestCase
         $response = $this->actingAs($owner)->get(route('dashboard.index'));
 
         $response->assertOk()
-            ->assertDontSee('Agregar video')
-            ->assertDontSee('Cambiar video')
-            ->assertDontSee('Agregar recorrido 360°')
-            ->assertDontSee('id="video-upload-dialog"', false);
+            ->assertSee('Agregar video')
+            ->assertDontSee('Agregar recorrido 360°');
     }
 
     public function test_admin_dashboard_shows_properties_owned_by_other_users(): void

@@ -18,7 +18,7 @@ class EnsurePhoneNumberIsCompleted
         if (
             $request->user()
             && $request->session()->get('phone_completion_required', false)
-            && ! $request->routeIs('profile.phone.*', 'logout', 'firebase-auth')
+            && ! $request->routeIs('profile.phone.*', 'logout', 'firebase-auth', 'habeas-data.accept')
         ) {
             return redirect()->guest(route('profile.phone.show'));
         }

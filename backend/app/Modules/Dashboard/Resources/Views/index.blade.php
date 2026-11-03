@@ -209,7 +209,7 @@
                                             @else
                                                 <span class="dashboard-muted">Sin video</span>
                                             @endif
-                                            @if($user->isAdmin() || $user->isFilmmaker())
+                                            @if($user->canUploadPropertyVideo($property))
                                                 <button
                                                     type="button"
                                                     class="dashboard-action-button dashboard-action-button--video"
@@ -371,7 +371,7 @@
                 class="video-file-input"
                 aria-describedby="video-file-help video-file-error"
             >
-            <p class="video-file-help" id="video-file-help">Máximo 1 minuto y 100 MB. Recomendado: Full HD (1080p).</p>
+            <p class="video-file-help" id="video-file-help">Máximo 1 minuto, 100 MB y resolución Full HD (1080p).</p>
             <p class="video-file-error" id="video-file-error" role="alert">@error('video'){{ $message }}@enderror</p>
 
             <div class="video-dialog-actions">

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Payment\Models\PaymentOrder;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
@@ -19,6 +20,7 @@ class PropertyImageManagementTest extends TestCase
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
+        PaymentOrder::factory()->approved()->create(['user_id' => $owner->id]);
 
         $this->actingAs($owner)
             ->get(route('properties.create'))

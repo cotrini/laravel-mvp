@@ -5,11 +5,14 @@ namespace App\Modules\Property\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Media\Models\Media;
 use App\Modules\Media\Support\PublicMediaUrl;
+use App\Modules\Payment\Services\PublicationQuota;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
 use App\Modules\Property\Support\Mp4DurationValidator;
+use App\Modules\Property\Support\Mp4ResolutionValidator;
 use App\Modules\Property\Support\PdfPageCountValidator;
+use App\Modules\User\Models\User;
 use App\Modules\User\Support\ColombianPhoneNumber as ColombianPhoneNumberFormatter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,8 +47,18 @@ class PropertyWebController extends Controller
 
     public function __construct(
         private readonly Mp4DurationValidator $durationValidator,
+        private readonly Mp4ResolutionValidator $resolutionValidator,
         private readonly PdfPageCountValidator $pdfPageCountValidator,
+        private readonly PublicationQuota $publicationQuota,
     ) {}
+
+    private function redirectToPublicationPayment(): RedirectResponse
+    {
+        return redirect()->route('payments.publication.show')->with(
+            'status',
+            'Tu cuenta incluye 1 propiedad gratis. Para publicar otra, realiza el pago de la publicación adicional.',
+        );
+    }
 
     public function index(Request $request): View
     {
@@ -232,6 +245,10 @@ class PropertyWebController extends Controller
 
         abort_if($request->user()->isFilmmaker() || $request->user()->isAppraiser(), 403);
 
+        if (! $this->publicationQuota->canPublish($request->user())) {
+            return $this->redirectToPublicationPayment();
+        }
+
         $departments = Department::query()
             ->with(['cities' => fn ($query) => $query->orderBy('name')])
             ->orderBy('name')
@@ -267,6 +284,10 @@ class PropertyWebController extends Controller
     public function store(Request $request)
     {
         abort_if($request->user()->isFilmmaker() || $request->user()->isAppraiser(), 403);
+
+        if (! $this->publicationQuota->canPublish($request->user())) {
+            return $this->redirectToPublicationPayment();
+        }
 
         // Validate and store the property
         $validatedData = $request->validate(array_merge([
@@ -307,9 +328,25 @@ class PropertyWebController extends Controller
                 ->withInput();
         }
 
-        $property = new Property($validatedData);
-        $property->user_id = auth()->id();
-        $property->save();
+        $property = DB::transaction(function () use ($validatedData): ?Property {
+            // Bloquea al usuario para que dos solicitudes simultáneas no superen su cupo de publicaciones.
+            $owner = User::query()->whereKey(auth()->id())->lockForUpdate()->firstOrFail();
+
+            if (! $this->publicationQuota->canPublish($owner)) {
+                return null;
+            }
+
+            $property = new Property($validatedData);
+            $property->user_id = $owner->id;
+            $property->save();
+
+            return $property;
+        });
+
+        if (! $property) {
+            return $this->redirectToPublicationPayment();
+        }
+
         $this->handlePropertyImages($request, $property);
         if ($blueprintFile instanceof UploadedFile) {
             $this->persistBlueprintFile($property, $blueprintFile);
@@ -321,7 +358,7 @@ class PropertyWebController extends Controller
     public function storeVideo(Request $request, int $id): RedirectResponse
     {
         $property = Property::findOrFail($id);
-        abort_unless($request->user()->canManagePropertyMedia($property), 403);
+        abort_unless($request->user()->canUploadPropertyVideo($property), 403);
 
         $validated = $request->validate([
             'video' => ['required', 'file', 'mimes:mp4', 'extensions:mp4', 'max:102400'],
@@ -336,6 +373,12 @@ class PropertyWebController extends Controller
         if (! $this->durationValidator->isAtMostOneMinute($video)) {
             return back()
                 ->withErrors(['video' => 'El archivo debe ser un video MP4 válido de máximo 1 minuto.'])
+                ->withInput();
+        }
+
+        if ($request->user()->role === User::ROLE_USER && ! $this->resolutionValidator->isAtMostFullHd($video)) {
+            return back()
+                ->withErrors(['video' => 'El video debe tener una resolución máxima Full HD (1920x1080).'])
                 ->withInput();
         }
 

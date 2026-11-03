@@ -265,11 +265,11 @@
                 </div>
             </form>
 
-            @if(auth()->user()->canManagePropertyMedia($property))
+            @if(auth()->user()->canUploadPropertyVideo($property))
                 <section class="mt-7 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(31,41,55,0.05)] sm:p-7" aria-labelledby="property-video-heading">
                     <p class="text-xs font-extrabold uppercase tracking-[0.14em] text-teal-700">Contenido multimedia</p>
                     <h2 id="property-video-heading" class="mt-1 text-xl font-extrabold text-slate-900">Video del inmueble</h2>
-                    <p class="mt-2 text-sm text-slate-600">Admite videos MP4 de hasta 100 MB y 1 minuto.</p>
+                    <p class="mt-2 text-sm text-slate-600">Admite videos MP4 de hasta 100 MB, 1 minuto y resolución máxima Full HD (1080p).</p>
                     @php($video = $property->media->firstWhere('type', 'video'))
                     @if($video)
                         <a href="{{ $video->public_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-lg bg-teal-50 px-4 py-2 text-sm font-bold text-teal-800 transition hover:bg-teal-100">

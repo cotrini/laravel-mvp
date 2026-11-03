@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureHabeasDataAccepted;
 use App\Http\Middleware\EnsurePhoneNumberIsCompleted;
 use App\Http\Middleware\HandlePostTooLarge;
 use App\Http\Middleware\RejectBannedUser;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandlePostTooLarge::class,
             RejectBannedUser::class,
+            EnsureHabeasDataAccepted::class,
             EnsurePhoneNumberIsCompleted::class,
         ]);
         $middleware->api(append: [HandlePostTooLarge::class]);

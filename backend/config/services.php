@@ -45,6 +45,18 @@ return [
         'measurement_id' => env('FIREBASE_MEASUREMENT_ID'),
     ],
 
+    'wompi' => [
+        'public_key' => env('WOMPI_PUBLIC_KEY'),
+        'private_key' => env('WOMPI_PRIVATE_KEY'),
+        'events_secret' => env('WOMPI_EVENTS_SECRET'),
+        'integrity_secret' => env('WOMPI_INTEGRITY_SECRET'),
+        'base_url' => env('WOMPI_BASE_URL', 'https://production.wompi.co/v1'),
+        'checkout_url' => env('WOMPI_CHECKOUT_URL', 'https://checkout.wompi.co/p/'),
+        'currency' => 'COP',
+        // 50.000 COP expresados en centavos, como exige Wompi.
+        'publication_price_in_cents' => (int) env('WOMPI_PUBLICATION_PRICE_IN_CENTS', 5000000),
+    ],
+
     'carto' => [
         'api_key' => env('CARTO_API_KEY'),
     ],

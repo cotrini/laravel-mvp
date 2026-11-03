@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Media\Models\Media;
+use App\Modules\Payment\Models\PaymentOrder;
 use App\Modules\Property\Models\City;
 use App\Modules\Property\Models\Department;
 use App\Modules\Property\Models\Property;
@@ -391,6 +392,7 @@ class PropertyDetailsTest extends TestCase
     public function test_accepts_the_maximum_sale_price_and_rejects_a_construction_year_before_1950(): void
     {
         $owner = User::factory()->create();
+        PaymentOrder::factory()->approved()->create(['user_id' => $owner->id]);
         $this->actingAs($owner);
 
         $response = $this->post(route('properties.store'), $this->propertyInput([
@@ -482,6 +484,7 @@ class PropertyDetailsTest extends TestCase
     {
         $owner = User::factory()->create();
         $property = $this->createProperty($owner);
+        PaymentOrder::factory()->approved()->create(['user_id' => $owner->id]);
         $department = Department::query()->where('name', 'Caldas')->firstOrFail();
         $city = City::query()->where('department_id', $department->id)->where('name', 'Manizales')->firstOrFail();
         $this->actingAs($owner);
