@@ -16,7 +16,7 @@ class CreditSimulatorController extends Controller
     public function show(Request $request): View
     {
         $validated = $request->validate([
-            'amount' => ['nullable', 'integer', 'between:1,1000000000000'],
+            'amount' => ['nullable', 'numeric', 'between:1,1000000000000'],
             'property_id' => ['nullable', 'integer', 'exists:properties,id'],
         ]);
         $property = $this->findProperty($validated['property_id'] ?? null);
