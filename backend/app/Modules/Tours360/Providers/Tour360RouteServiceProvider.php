@@ -2,8 +2,8 @@
 
 namespace App\Modules\Tours360\Providers;
 
-use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 
 class Tour360RouteServiceProvider extends ServiceProvider
@@ -16,10 +16,11 @@ class Tour360RouteServiceProvider extends ServiceProvider
 
         // Cargamos las rutas API para Expo (con prefijo /api/v1)
         Route::prefix('api/v1')
+            ->name('api.')
             ->middleware('api')
             ->group(app_path('Modules/Tours360/Routes/api.php'));
 
-        //load the views for the module
+        // load the views for the module
         View::addNamespace('tours360', app_path('Modules/Tours360/Resources/Views'));
     }
 }

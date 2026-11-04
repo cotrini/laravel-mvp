@@ -2,8 +2,8 @@
 
 namespace App\Modules\Dashboard\Providers;
 
-use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 
 class DashboardRouteServiceProvider extends ServiceProvider
@@ -16,10 +16,11 @@ class DashboardRouteServiceProvider extends ServiceProvider
 
         // Cargamos las rutas API para Expo (con prefijo /api/v1)
         Route::prefix('api/v1')
+            ->name('api.')
             ->middleware('api')
             ->group(app_path('Modules/Dashboard/Routes/api.php'));
 
-        //load the views for the module
+        // load the views for the module
         View::addNamespace('dashboard', app_path('Modules/Dashboard/Resources/Views'));
     }
 }

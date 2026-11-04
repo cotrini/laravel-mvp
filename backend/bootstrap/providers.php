@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Core\Providers\CoreRouteServiceProvider;
 use App\Modules\Credito\Providers\CreditRouteServiceProvider;
 use App\Modules\Dashboard\Providers\DashboardRouteServiceProvider;
 use App\Modules\Media\Providers\MediaRouteServiceProvider;
@@ -10,6 +11,7 @@ use App\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
+    CoreRouteServiceProvider::class,
     PropertyRouteServiceProvider::class,
     MediaRouteServiceProvider::class,
     UserRouteServiceProvider::class,

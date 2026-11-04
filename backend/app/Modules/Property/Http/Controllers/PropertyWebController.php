@@ -13,6 +13,7 @@ use App\Modules\Property\Support\PdfPageCountValidator;
 use App\Modules\User\Support\ColombianPhoneNumber as ColombianPhoneNumberFormatter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -318,7 +319,7 @@ class PropertyWebController extends Controller
         return redirect()->route('properties.show', $property->id);
     }
 
-    public function storeVideo(Request $request, int $id): RedirectResponse
+    public function storeVideo(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $property = Property::findOrFail($id);
         abort_unless($request->user()->canManagePropertyMedia($property), 403);
@@ -334,6 +335,15 @@ class PropertyWebController extends Controller
         $video = $validated['video'];
 
         if (! $this->durationValidator->isAtMostOneMinute($video)) {
+            if ($request->expectsJson() || $request->routeIs('api.*')) {
+                $message = 'El archivo debe ser un video MP4 válido de máximo 1 minuto.';
+
+                return response()->json([
+                    'message' => $message,
+                    'errors' => ['video' => [$message]],
+                ], 422);
+            }
+
             return back()
                 ->withErrors(['video' => 'El archivo debe ser un video MP4 válido de máximo 1 minuto.'])
                 ->withInput();
@@ -346,6 +356,7 @@ class PropertyWebController extends Controller
         }
 
         $videoMedia = $property->media()->where('type', 'video')->first();
+        $isNewVideo = $videoMedia === null;
         $previousVideoPath = $videoMedia?->url_or_path;
 
         try {
@@ -360,7 +371,7 @@ class PropertyWebController extends Controller
             if ($videoMedia) {
                 $videoMedia->update($mediaData);
             } else {
-                $property->media()->create($mediaData);
+                $videoMedia = $property->media()->create($mediaData);
             }
         } catch (Throwable $exception) {
             $this->cleanupR2Uploads([$videoPath]);
@@ -370,6 +381,18 @@ class PropertyWebController extends Controller
 
         if ($previousVideoPath !== null) {
             $this->deleteStoredMedia($previousVideoPath, $property->id, 'video');
+        }
+
+        if ($request->expectsJson() || $request->routeIs('api.*')) {
+            return response()->json([
+                'message' => 'El video se agregó a la propiedad.',
+                'data' => [
+                    'id' => $videoMedia->refresh()->id,
+                    'type' => $videoMedia->type,
+                    'title' => $videoMedia->title,
+                    'url' => $videoMedia->public_url,
+                ],
+            ], $isNewVideo ? 201 : 200);
         }
 
         return redirect()->route('dashboard.index')->with('success', 'El video se agregó a la propiedad.');

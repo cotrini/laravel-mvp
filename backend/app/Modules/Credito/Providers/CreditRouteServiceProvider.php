@@ -13,6 +13,11 @@ class CreditRouteServiceProvider extends ServiceProvider
         Route::middleware('web')
             ->group(app_path('Modules/Credito/Routes/web.php'));
 
+        Route::prefix('api/v1')
+            ->name('api.')
+            ->middleware('api')
+            ->group(app_path('Modules/Credito/Routes/api.php'));
+
         View::addNamespace('credito', app_path('Modules/Credito/Resources/Views'));
     }
 }

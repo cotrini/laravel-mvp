@@ -47,7 +47,7 @@ class Tour360WebController extends Controller
         return view('tours360::Tours.form', compact('property'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate($this->tourRules(true), $this->tourValidationMessages());
         $property = Property::query()->findOrFail($validated['property_id']);
@@ -55,6 +55,12 @@ class Tour360WebController extends Controller
         $this->validateSceneImages($validated['scenes']);
 
         if ($property->tour) {
+            if ($request->expectsJson() || $request->routeIs('api.*')) {
+                return response()->json([
+                    'message' => 'Este inmueble ya tiene un recorrido 360°.',
+                ], 409);
+            }
+
             return redirect()->route('tours360.edit', $property->tour)
                 ->with('error', 'Este inmueble ya tiene un recorrido 360°.');
         }
@@ -65,7 +71,7 @@ class Tour360WebController extends Controller
         try {
             $scenes = $this->storeSceneImages($validated['scenes'], $property, $storedPaths, $pendingPaths);
 
-            DB::transaction(function () use ($property, $validated, $scenes): void {
+            $tour = DB::transaction(function () use ($property, $validated, $scenes): Tour {
                 $tour = Tour::create([
                     'title' => $validated['title'],
                     'description' => $validated['description'] ?? null,
@@ -76,6 +82,8 @@ class Tour360WebController extends Controller
 
                 $tour->property()->save($property);
                 $this->saveScenes($tour, $scenes);
+
+                return $tour;
             });
         } catch (Throwable $exception) {
             $this->cleanupR2Uploads($storedPaths);
@@ -84,6 +92,13 @@ class Tour360WebController extends Controller
         }
 
         $this->cleanupPendingUploads($pendingPaths);
+
+        if ($request->expectsJson() || $request->routeIs('api.*')) {
+            return response()->json([
+                'message' => 'El recorrido 360° se agregó al inmueble.',
+                'data' => $tour->fresh(['scenes']),
+            ], 201);
+        }
 
         return redirect()->route('dashboard.index')->with('success', 'El recorrido 360° se agregó al inmueble.');
     }
@@ -198,17 +213,17 @@ class Tour360WebController extends Controller
 
         $this->cleanupPendingUploads($pendingPaths);
 
-        if ($request->expectsJson()) {
+        if ($request->expectsJson() || $request->routeIs('api.*')) {
             return response()->json([
                 'message' => 'Recorrido y escenas actualizados correctamente.',
-                'data' => $tour->fresh('scenes'),
+                'data' => $tour->fresh(['scenes']),
             ]);
         }
 
         return redirect()->route('dashboard.index')->with('success', 'El recorrido 360° se actualizó correctamente.');
     }
 
-    public function destroy(Request $request, int $id): RedirectResponse
+    public function destroy(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $tour = Tour::query()->with(['property', 'scenes'])->findOrFail($id);
         $property = $tour->property ?? abort(404);
@@ -229,6 +244,10 @@ class Tour360WebController extends Controller
 
         if ($storedPaths !== [] && ! Storage::disk('r2')->delete($storedPaths)) {
             throw new RuntimeException('No fue posible eliminar las imágenes del recorrido 360° en Cloudflare R2.');
+        }
+
+        if ($request->expectsJson() || $request->routeIs('api.*')) {
+            return response()->json(['message' => 'El recorrido 360° se eliminó del inmueble.']);
         }
 
         return redirect()->route('dashboard.index')->with('success', 'El recorrido 360° se eliminó del inmueble.');
