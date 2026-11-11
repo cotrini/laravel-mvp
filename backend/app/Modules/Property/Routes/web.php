@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Property\Http\Controllers\CartelController;
 use App\Modules\Property\Http\Controllers\LocationCatalogController;
 use App\Modules\Property\Http\Controllers\PropertyAppraisalController;
 use App\Modules\Property\Http\Controllers\PropertyRequestController;
@@ -77,5 +78,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/neighborhoods/{neighborhood}', [LocationCatalogController::class, 'destroyNeighborhood'])->name('neighborhoods.destroy');
     });
 });
+
+Route::get('/propiedades/{id}/cartel', [CartelController::class, 'generarCartel'])
+    ->name('propiedades.cartel')
+    ->middleware('auth');
 
 Route::get('/properties/{id}', [PropertyWebController::class, 'show'])->name('properties.show');

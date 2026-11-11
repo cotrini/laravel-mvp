@@ -226,18 +226,57 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="dashboard-property-actions">
-                                            <a href="{{ route('properties.show', $property->id) }}" class="dashboard-action-button dashboard-action-button--view">Ver</a>
-                                            @if($propertyAppraisal && ! $user->isAppraiser())
-                                                <a href="{{ route('properties.appraisals.show', $property) }}" class="dashboard-action-button dashboard-action-button--view">
-                                                    Ver avalúo
+                                        @php
+                                            $isPropertyOwner = (int) $property->user_id === (int) $user->id;
+                                            $canToggleActive = $user->isAdmin() || (! $user->isFilmmaker() && $isPropertyOwner);
+                                            $isOwnerRequestingServices = ! $user->isAdmin() && ! $user->isFilmmaker() && $isPropertyOwner;
+                                            $pendingRequestTypes = $property->requests
+                                                ->where('status', \App\Modules\Property\Models\PropertyRequest::STATUS_PENDING)
+                                                ->pluck('type');
+                                            $propertyMediaRequestPending = $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360)
+                                                || (! $propertyVideo && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO))
+                                                || (! $property->tour && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_TOUR_360));
+                                            $missingPropertyMediaLabel = match (true) {
+                                                ! $propertyVideo && ! $property->tour => 'Solicitar video y recorrido 360°',
+                                                ! $propertyVideo => 'Solicitar video',
+                                                default => 'Solicitar recorrido 360°',
+                                            };
+                                            $showVerificationToggle = $user->isAdmin();
+                                            $showVerificationRequest = $isOwnerRequestingServices && ! $property->is_verified;
+                                            $showMediaRequest = $isOwnerRequestingServices && (! $propertyVideo || ! $property->tour);
+                                            $showAppraisalRequest = $isPropertyOwner && ! $propertyAppraisal;
+                                            $showDeleteAction = ! $user->isFilmmaker();
+                                            $hasMoreActions = $showVerificationToggle || $showVerificationRequest || $showMediaRequest || $showAppraisalRequest || $showDeleteAction;
+                                            $menuItemClasses = 'flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50';
+                                            $quickButtonClasses = 'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-bold whitespace-nowrap transition-colors';
+                                        @endphp
+                                        <div class="flex min-w-[190px] flex-col items-start gap-2">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <a href="{{ route('properties.show', $property->id) }}" class="{{ $quickButtonClasses }} bg-sky-50 text-sky-600 hover:bg-sky-100">
+                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>
+                                                    </svg>
+                                                    Ver
                                                 </a>
-                                            @endif
+                                                @unless($user->isAppraiser())
+                                                    <a href="{{ route('properties.edit', $property->id) }}" class="{{ $quickButtonClasses }} bg-amber-50 text-amber-700 hover:bg-amber-100">
+                                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                            <path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15l0 5Z"></path>
+                                                        </svg>
+                                                        Editar
+                                                    </a>
+                                                @endunless
+                                                @if($propertyAppraisal && ! $user->isAppraiser())
+                                                    <a href="{{ route('properties.appraisals.show', $property) }}" class="{{ $quickButtonClasses }} bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                                        Ver avalúo
+                                                    </a>
+                                                @endif
+                                            </div>
                                             @if($user->isAppraiser())
                                                 @if($propertyAppraisal)
                                                     <span class="dashboard-muted">Avalúo comercial disponible</span>
                                                 @endif
-                                                <form class="dashboard-appraisal-upload" action="{{ route('properties.appraisals.upload', $property) }}" method="POST" enctype="multipart/form-data">
+                                                <form class="dashboard-appraisal-upload grid w-full max-w-[230px] gap-2" action="{{ route('properties.appraisals.upload', $property) }}" method="POST" enctype="multipart/form-data">
                                                     @csrf
                                                     <label class="dashboard-muted" for="appraisal_{{ $property->id }}">
                                                         {{ $propertyAppraisal ? 'Reemplazar avalúo PDF' : 'Subir avalúo PDF' }}
@@ -249,79 +288,89 @@
                                                     </button>
                                                 </form>
                                             @else
-                                            @if($user->isAdmin())
-                                                <form action="{{ route('properties.verification.toggle', $property) }}" method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
-                                                        {{ $property->is_verified ? 'Retirar verificación' : 'Verificar propiedad' }}
-                                                    </button>
-                                                </form>
-                                            @endif
-                                            @if($user->isAdmin() || (! $user->isFilmmaker() && (int) $property->user_id === (int) $user->id))
-                                                <form action="{{ route('properties.active.toggle', $property) }}" method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
-                                                        {{ $property->is_active ? 'Desactivar propiedad' : 'Activar propiedad' }}
-                                                    </button>
-                                                </form>
-                                            @endif
-                                            @if(! $user->isAdmin() && ! $user->isFilmmaker() && (int) $property->user_id === (int) $user->id)
-                                                @php
-                                                    $pendingRequestTypes = $property->requests
-                                                        ->where('status', \App\Modules\Property\Models\PropertyRequest::STATUS_PENDING)
-                                                        ->pluck('type');
-                                                    $propertyMediaRequestPending = $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360)
-                                                        || (! $propertyVideo && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO))
-                                                        || (! $property->tour && $pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_TOUR_360));
-                                                    $missingPropertyMediaLabel = match (true) {
-                                                        ! $propertyVideo && ! $property->tour => 'Solicitar video y recorrido 360°',
-                                                        ! $propertyVideo => 'Solicitar video',
-                                                        default => 'Solicitar recorrido 360°',
-                                                    };
-                                                @endphp
-                                                    @if(! $property->is_verified)
-                                                        @if($pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VERIFICATION))
-                                                            <span class="dashboard-muted">Solicitar verificación: pendiente</span>
-                                                        @else
-                                                            <form action="{{ route('properties.requests.store', $property) }}" method="POST">
-                                                                @csrf
-                                                                <input type="hidden" name="type" value="verification">
-                                                                <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
-                                                                    Solicitar verificación
-                                                                </button>
-                                                            </form>
-                                                        @endif
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    @if($isPropertyOwner)
+                                                        <a href="{{ route('propiedades.cartel', $property->id) }}" target="_blank" rel="noopener noreferrer" class="{{ $quickButtonClasses }} bg-emerald-50 text-emerald-700 hover:bg-emerald-100" title="Abrir aviso imprimible con código QR">
+                                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <path d="M6 9V3h12v6"></path><rect x="3" y="9" width="18" height="9" rx="2"></rect><path d="M7 14h10v7H7z"></path>
+                                                            </svg>
+                                                            Aviso imprimible
+                                                        </a>
                                                     @endif
-                                                    @if(! $propertyVideo || ! $property->tour)
-                                                        @if($propertyMediaRequestPending)
-                                                            <span class="dashboard-muted">{{ $missingPropertyMediaLabel }}: pendiente</span>
-                                                        @else
-                                                            <form action="{{ route('properties.requests.store', $property) }}" method="POST">
-                                                                @csrf
-                                                                <input type="hidden" name="type" value="{{ \App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360 }}">
-                                                                <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
-                                                                    {{ $missingPropertyMediaLabel }}
-                                                                </button>
-                                                            </form>
-                                                        @endif
+                                                    @if($canToggleActive)
+                                                        <form action="{{ route('properties.active.toggle', $property) }}" method="POST">
+                                                            @csrf
+                                                            <button type="submit" class="{{ $quickButtonClasses }} bg-slate-100 text-slate-700 hover:bg-slate-200" title="{{ $property->is_active ? 'Desactivar propiedad' : 'Activar propiedad' }}">
+                                                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                    <path d="M12 3v9"></path><path d="M18.4 6.6a9 9 0 1 1-12.8 0"></path>
+                                                                </svg>
+                                                                {{ $property->is_active ? 'Desactivar' : 'Activar' }}
+                                                            </button>
+                                                        </form>
                                                     @endif
-                                                @endif
-                                            @if((int) $property->user_id === (int) $user->id && ! $propertyAppraisal)
-                                                <form action="{{ route('properties.appraisals.request', $property) }}" method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--edit">
-                                                        Solicitar avalúo comercial
-                                                    </button>
-                                                </form>
-                                            @endif
-                                            <a href="{{ route('properties.edit', $property->id) }}" class="dashboard-action-button dashboard-action-button--edit">Editar</a>
-                                            @unless($user->isFilmmaker())
-                                                <form action="{{ route('properties.destroy', $property->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta propiedad?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="dashboard-action-button dashboard-action-button--delete">Eliminar</button>
-                                                </form>
-                                            @endunless
+                                                    @if($hasMoreActions)
+                                                        <details class="relative" data-actions-menu>
+                                                            <summary class="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 [&::-webkit-details-marker]:hidden" aria-label="Más acciones" title="Más acciones">
+                                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                                    <circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle>
+                                                                </svg>
+                                                            </summary>
+                                                            <div class="fixed z-50 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg" role="menu" data-actions-menu-panel>
+                                                                @if($showVerificationToggle)
+                                                                    <form action="{{ route('properties.verification.toggle', $property) }}" method="POST">
+                                                                        @csrf
+                                                                        <button type="submit" role="menuitem" class="{{ $menuItemClasses }}">
+                                                                            {{ $property->is_verified ? 'Retirar verificación' : 'Verificar propiedad' }}
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
+                                                                @if($showVerificationRequest)
+                                                                    @if($pendingRequestTypes->contains(\App\Modules\Property\Models\PropertyRequest::TYPE_VERIFICATION))
+                                                                        <span class="block px-3 py-2 text-xs text-slate-400">Solicitar verificación: pendiente</span>
+                                                                    @else
+                                                                        <form action="{{ route('properties.requests.store', $property) }}" method="POST">
+                                                                            @csrf
+                                                                            <input type="hidden" name="type" value="verification">
+                                                                            <button type="submit" role="menuitem" class="{{ $menuItemClasses }}">
+                                                                                Solicitar verificación
+                                                                            </button>
+                                                                        </form>
+                                                                    @endif
+                                                                @endif
+                                                                @if($showMediaRequest)
+                                                                    @if($propertyMediaRequestPending)
+                                                                        <span class="block px-3 py-2 text-xs text-slate-400">{{ $missingPropertyMediaLabel }}: pendiente</span>
+                                                                    @else
+                                                                        <form action="{{ route('properties.requests.store', $property) }}" method="POST">
+                                                                            @csrf
+                                                                            <input type="hidden" name="type" value="{{ \App\Modules\Property\Models\PropertyRequest::TYPE_VIDEO_AND_TOUR_360 }}">
+                                                                            <button type="submit" role="menuitem" class="{{ $menuItemClasses }}">
+                                                                                {{ $missingPropertyMediaLabel }}
+                                                                            </button>
+                                                                        </form>
+                                                                    @endif
+                                                                @endif
+                                                                @if($showAppraisalRequest)
+                                                                    <form action="{{ route('properties.appraisals.request', $property) }}" method="POST">
+                                                                        @csrf
+                                                                        <button type="submit" role="menuitem" class="{{ $menuItemClasses }}">
+                                                                            Solicitar avalúo comercial
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
+                                                                @if($showDeleteAction)
+                                                                    <form class="mt-1 border-t border-slate-100 pt-1" action="{{ route('properties.destroy', $property->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta propiedad?');">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" role="menuitem" class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50">
+                                                                            Eliminar propiedad
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
+                                                            </div>
+                                                        </details>
+                                                    @endif
+                                                </div>
                                             @endif
                                         </div>
                                     </td>
@@ -471,4 +520,48 @@
         })();
     </script>
     @endif
+
+    <script>
+        (() => {
+            const menus = () => document.querySelectorAll('details[data-actions-menu]');
+            const closeAll = (except = null) => menus().forEach((menu) => {
+                if (menu !== except) {
+                    menu.open = false;
+                }
+            });
+
+            document.addEventListener('toggle', (event) => {
+                const menu = event.target;
+
+                if (!(menu instanceof HTMLDetailsElement) || !menu.hasAttribute('data-actions-menu') || !menu.open) {
+                    return;
+                }
+
+                closeAll(menu);
+
+                const panel = menu.querySelector('[data-actions-menu-panel]');
+                const trigger = menu.querySelector('summary').getBoundingClientRect();
+                const panelRect = panel.getBoundingClientRect();
+                const opensUpwards = trigger.bottom + panelRect.height + 8 > window.innerHeight && trigger.top > panelRect.height + 8;
+
+                panel.style.left = `${Math.max(8, trigger.right - panelRect.width)}px`;
+                panel.style.top = `${opensUpwards ? trigger.top - panelRect.height - 4 : trigger.bottom + 4}px`;
+            }, true);
+
+            document.addEventListener('click', (event) => {
+                if (!event.target.closest('details[data-actions-menu]')) {
+                    closeAll();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeAll();
+                }
+            });
+
+            window.addEventListener('resize', () => closeAll());
+            window.addEventListener('scroll', () => closeAll(), true);
+        })();
+    </script>
 @endsection
