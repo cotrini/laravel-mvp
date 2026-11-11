@@ -57,4 +57,11 @@ return [
         'address' => env('APPRAISAL_COMPANY_EMAIL'),
     ],
 
+    // Ensamblado de video comercial (VideoAssemblyController). Requiere ffmpeg instalado.
+    'ffmpeg' => [
+        'binary' => env('FFMPEG_BINARY', 'ffmpeg'),
+        'font_path' => env('FFMPEG_FONT_PATH'),
+        'logo_path' => env('FFMPEG_LOGO_PATH'),
+    ],
+
 ];

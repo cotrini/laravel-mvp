@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Colombia Sin Comisión",
+    "slug": "colombiasincomision",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTabletMode": true,
+      "permissions": [
+        "CAMERA",
+        "CAMERA_ROLL",
+        "MOTION",
+        "LOCATION"
+      ]
+    },
+    "android": {
+      "package": "com.colombiasincomision.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffe22d"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Necesitamos acceso a la cámara para capturar fotos 360 y videos"
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Se necesita el sensor de movimiento para la guía 360"
+        }
+      ]
+    ]
+  }
+}

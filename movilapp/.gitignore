@@ -1,0 +1,54 @@
+# Expo
+.expo/
+.expo-shared/
+dist/
+npm-debug.log*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Node
+node_modules/
+.yarn/
+yarn-error.log
+*.pem
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.Thumbs.db
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+.gradle
+local.properties
+.eas/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+.jest/
+coverage/
+
+# Generated files
+eas.json.local

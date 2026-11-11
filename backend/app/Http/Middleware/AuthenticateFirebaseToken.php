@@ -10,6 +10,7 @@ use Kreait\Firebase\Contract\Auth as FirebaseAuthContract;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 use Kreait\Firebase\Exception\Auth\RevokedIdToken;
 use Kreait\Firebase\Exception\InvalidArgumentException as FirebaseInvalidArgumentException;
+use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateFirebaseToken
@@ -22,6 +23,20 @@ class AuthenticateFirebaseToken
 
         if (! is_string($idToken) || $idToken === '') {
             return $this->unauthenticated();
+        }
+
+        // Tokens de cuentas de base de datos (emitidos por /auth/login) se validan antes que los de Firebase.
+        $accessToken = PersonalAccessToken::findToken($idToken);
+
+        if ($accessToken !== null) {
+            $tokenUser = $accessToken->tokenable;
+
+            if (! $tokenUser instanceof User
+                || ($accessToken->expires_at !== null && $accessToken->expires_at->isPast())) {
+                return $this->unauthenticated();
+            }
+
+            return $this->authorizeUser($request, $next, $tokenUser);
         }
 
         try {
@@ -47,6 +62,11 @@ class AuthenticateFirebaseToken
             return response()->json(['message' => 'La cuenta no está registrada.'], 401);
         }
 
+        return $this->authorizeUser($request, $next, $user);
+    }
+
+    private function authorizeUser(Request $request, Closure $next, User $user): Response
+    {
         if ($user->is_banned) {
             return response()->json(['message' => 'Esta cuenta no puede acceder a la aplicación.'], 403);
         }
@@ -62,6 +82,6 @@ class AuthenticateFirebaseToken
 
     private function unauthenticated(): JsonResponse
     {
-        return response()->json(['message' => 'Se requiere un Firebase ID token válido.'], 401);
+        return response()->json(['message' => 'Se requiere un token de autenticación válido.'], 401);
     }
 }

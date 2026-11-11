@@ -40,7 +40,17 @@ class PropertyApiController extends Controller
             });
         }
 
-        foreach (['property_type', 'listing_type', 'bedrooms', 'bathrooms', 'stratum'] as $filter) {
+        if (filled($filters['property_type'] ?? null)) {
+            $propertyType = strtolower($filters['property_type']);
+
+            if (in_array($propertyType, ['comercial', 'local'], true)) {
+                $properties->whereRaw('LOWER(property_type) IN (?, ?)', ['comercial', 'local']);
+            } else {
+                $properties->whereRaw('LOWER(property_type) = ?', [$propertyType]);
+            }
+        }
+
+        foreach (['listing_type', 'bedrooms', 'bathrooms', 'stratum'] as $filter) {
             if (isset($filters[$filter])) {
                 $properties->where($filter, $filters[$filter]);
             }

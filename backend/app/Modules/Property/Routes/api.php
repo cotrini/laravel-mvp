@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateFirebaseToken;
 use App\Modules\Property\Http\Controllers\PropertyApiController;
 use App\Modules\Property\Http\Controllers\PropertyWebController;
+use App\Modules\Property\Http\Controllers\VideoAssemblyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/properties', [PropertyApiController::class, 'index'])
@@ -17,4 +18,7 @@ Route::middleware(AuthenticateFirebaseToken::class)->group(function (): void {
     Route::post('/properties/{id}/video', [PropertyWebController::class, 'storeVideo'])
         ->whereNumber('id')
         ->name('properties.video.store');
+    Route::post('/properties/{property}/video-assembly', [VideoAssemblyController::class, 'store'])
+        ->whereNumber('property')
+        ->name('properties.video-assembly.store');
 });

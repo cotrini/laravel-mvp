@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'phone_number', 'password'])]
 #[Hidden(['password', 'remember_token', 'role'])]
@@ -28,7 +29,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public const ROLE_APPRAISER = 'appraiser';
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, MustVerifyEmailTrait, Notifiable;
+    use HasApiTokens, HasFactory, MustVerifyEmailTrait, Notifiable;
 
     protected $attributes = [
         'email_verification_required' => false,
