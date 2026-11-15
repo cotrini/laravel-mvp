@@ -61,6 +61,7 @@ class CreditSimulatorController extends Controller
 
     public function calculate(Request $request, CreditSimulator $creditSimulator): View
     {
+        // Normalizar los valores a pesos enteros.
         foreach ([
             'property_value',
             'loan_amount',
