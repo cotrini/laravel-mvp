@@ -20,10 +20,20 @@ class CreditSimulatorController extends Controller
             'property_id' => ['nullable', 'integer', 'exists:properties,id'],
         ]);
         $property = $this->findProperty($validated['property_id'] ?? null);
-        $propertyValue = old('property_value', $property?->price ?? $validated['amount'] ?? '');
+        $propertyValue = old(
+        'property_value',
+            $property?->price ?? $validated['amount'] ?? ''
+        );
+
+        // Normalizar el precio a pesos enteros.
+        if ($propertyValue !== '' && is_numeric($propertyValue)) {
+            $propertyValue = (int) round((float) $propertyValue);
+        }
         $initialPaymentType = old('initial_payment_type', 'percentage');
         $initialPaymentPercentage = (int) old('initial_payment_percentage', 20);
-        $initialPaymentAmount = (int) old('initial_payment_amount', 0);
+        $initialPaymentAmount = (int) round(
+            (float) old('initial_payment_amount', 0)
+        );
         $initialPayment = $propertyValue === ''
             ? 0
             : ($initialPaymentType === 'amount'
@@ -51,6 +61,19 @@ class CreditSimulatorController extends Controller
 
     public function calculate(Request $request, CreditSimulator $creditSimulator): View
     {
+        foreach ([
+            'property_value',
+            'loan_amount',
+            'initial_payment_amount',
+        ] as $field) {
+            $value = $request->input($field);
+
+            if ($value !== null && $value !== '' && is_numeric($value)) {
+                $request->merge([
+                    $field => (string) round((float) $value),
+                ]);
+            }
+        }
         $validated = $request->validate([
             'property_value' => [
                 'nullable',
